@@ -90,7 +90,7 @@ internal static class SystemOneContract
         }
     }
 
-    public sealed record ParsedResponse(DecisionOutput Output, TokenUsage Usage, string? ResolvedModel);
+    public sealed record ParsedResponse(DecisionOutput Output, TokenUsage Usage, string? ResolvedModel, decimal? Cost = null);
 
     /// <summary>
     /// Reads the System One response body. Throws <see cref="JsonException"/> or
@@ -110,16 +110,21 @@ internal static class SystemOneContract
         }
 
         var usage = TokenUsage.None;
+        decimal? cost = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
             usage = new TokenUsage(ReadInt(usageElement, "input_tokens"), ReadInt(usageElement, "output_tokens"));
+            if (usageElement.TryGetProperty("cost", out var costElement) && costElement.ValueKind == JsonValueKind.Number)
+            {
+                cost = costElement.GetDecimal();
+            }
         }
 
         var resolvedModel = root.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.String
             ? model.GetString()
             : null;
 
-        return new ParsedResponse(new DecisionOutput(answers), usage, resolvedModel);
+        return new ParsedResponse(new DecisionOutput(answers), usage, resolvedModel, cost);
     }
 
     private static Answer ParseAnswer(string key, JsonElement element)
