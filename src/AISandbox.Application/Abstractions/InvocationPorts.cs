@@ -13,7 +13,8 @@ public sealed record InvocationRequest(
     AuthScheme Auth,
     string? ApiKey,
     RemoteModelId RemoteId,
-    RunInput Input);
+    RunInput Input,
+    IReadOnlyDictionary<string, string>? PathVariables = null);
 
 public abstract record InvocationOutcome;
 

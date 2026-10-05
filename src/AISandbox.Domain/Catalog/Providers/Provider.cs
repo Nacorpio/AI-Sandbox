@@ -9,6 +9,9 @@ public sealed class Provider : AggregateRoot<ProviderId>
 {
     public const int MaxNameLength = 100;
 
+    /// <summary>Path variable holding the Cloudflare account id.</summary>
+    public const string AccountIdVariable = "account_id";
+
     private Provider(
         ProviderId id,
         string name,
@@ -16,6 +19,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
         EndpointUri baseUrl,
         AuthScheme auth,
         SecretReference secret,
+        IReadOnlyDictionary<string, string> pathVariables,
         DateTimeOffset createdAt)
         : base(id)
     {
@@ -24,6 +28,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
         BaseUrl = baseUrl;
         Auth = auth;
         Secret = secret;
+        PathVariables = pathVariables;
         CreatedAt = createdAt;
     }
 
@@ -35,6 +40,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
         BaseUrl = null!;
         Auth = null!;
         Secret = null!;
+        PathVariables = null!;
     }
 
     public string Name { get; private set; }
@@ -47,6 +53,11 @@ public sealed class Provider : AggregateRoot<ProviderId>
 
     public SecretReference Secret { get; private set; }
 
+    /// <summary>
+    /// Values substituted into endpoint paths, such as the Cloudflare <c>account_id</c>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> PathVariables { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public static Result<Provider> Register(
@@ -55,6 +66,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
         string? baseUrl,
         AuthScheme auth,
         string? environmentVariable,
+        IReadOnlyDictionary<string, string>? pathVariables,
         DateTimeOffset now)
     {
         var trimmedName = name?.Trim();
@@ -79,11 +91,51 @@ public sealed class Provider : AggregateRoot<ProviderId>
             return endpoint.Error!;
         }
 
+        var variables = ValidatePathVariables(kind, pathVariables);
+        if (variables.IsFailure)
+        {
+            return variables.Error!;
+        }
+
         var id = ProviderId.New();
         var secret = SecretReference.ForProvider(id, string.IsNullOrWhiteSpace(environmentVariable) ? null : environmentVariable.Trim());
-        var provider = new Provider(id, trimmedName, kind, endpoint.Value, auth, secret, now);
+        var provider = new Provider(id, trimmedName, kind, endpoint.Value, auth, secret, variables.Value, now);
         provider.Raise(new ProviderRegistered(id, trimmedName, kind, now));
         return provider;
+    }
+
+    private static Result<IReadOnlyDictionary<string, string>> ValidatePathVariables(
+        ProviderKind kind,
+        IReadOnlyDictionary<string, string>? pathVariables)
+    {
+        var cleaned = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (key, value) in pathVariables ?? new Dictionary<string, string>())
+        {
+            if (string.IsNullOrEmpty(key) || !key.All(c => char.IsAsciiLetterOrDigit(c) || c == '_'))
+            {
+                return Error.Validation("pathVariables", $"Path variable name '{key}' may only contain letters, digits and underscores.");
+            }
+
+            var trimmed = value?.Trim();
+            if (string.IsNullOrEmpty(trimmed))
+            {
+                continue;
+            }
+
+            if (trimmed.Any(c => char.IsWhiteSpace(c) || c is '/' or '?' or '#' or '\\'))
+            {
+                return Error.Validation("pathVariables", $"Path variable '{key}' must not contain spaces or path separators.");
+            }
+
+            cleaned[key] = trimmed;
+        }
+
+        if (kind == ProviderKind.CloudflareWorkersAi && !cleaned.ContainsKey(AccountIdVariable))
+        {
+            return Error.Validation("pathVariables", "An account id is required for Cloudflare Workers AI.");
+        }
+
+        return cleaned;
     }
 }
 

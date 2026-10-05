@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddSingleton<IModelInvokerResolver, ModelInvokerResolver>();
         services.AddKeyedSingleton<IModelInvoker, SystemOneInvoker>(ProtocolId.SystemOne.Value);
         services.AddKeyedSingleton<IModelInvoker, OpenRouterDecisionsInvoker>(ProtocolId.OpenRouterDecisions.Value);
+        services.AddKeyedSingleton<IModelInvoker, WorkersAiInvoker>(ProtocolId.WorkersAi.Value);
 
         return services;
     }
