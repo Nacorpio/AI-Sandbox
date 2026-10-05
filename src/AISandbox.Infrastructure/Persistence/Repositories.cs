@@ -1,9 +1,11 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Features.Models;
+using AISandbox.Application.Features.Prompts;
 using AISandbox.Application.Features.Providers;
 using AISandbox.Application.Features.QuestionSets;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Abstractions;
+using AISandbox.Domain.Authoring.Prompts;
 using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Catalog.Providers;
@@ -99,7 +101,7 @@ internal sealed class RunQueries(AppDbContext db) : IRunQueries
 
         return runs.Select(r =>
         {
-            var state = r.Input.State.Display;
+            var state = r.Input.State?.Display ?? r.Input.Chat?.User ?? string.Empty;
             var costs = r.Executions.Where(e => e.Cost is not null).Select(e => e.Cost!).ToList();
             Money? total = costs.Count == 0 || costs.Select(c => c.Currency).Distinct().Count() > 1
                 ? null
@@ -132,5 +134,19 @@ internal sealed class QuestionSetQueries(AppDbContext db) : IQuestionSetQueries
             .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
             .Select(s => new QuestionSetSummary(s.Id, s.Name, s.Version, s.Questions.Count, s.UpdatedAt))
             .ToList();
+    }
+}
+
+internal sealed class PromptTemplateRepository(AppDbContext db) : IPromptTemplateRepository
+{
+    public void Add(PromptTemplate template) => db.PromptTemplates.Add(template);
+
+    public Task<PromptTemplate?> GetAsync(PromptTemplateId id, CancellationToken cancellationToken) =>
+        db.PromptTemplates.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<PromptTemplate>> ListAsync(CancellationToken cancellationToken)
+    {
+        var templates = await db.PromptTemplates.AsNoTracking().ToListAsync(cancellationToken);
+        return templates.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 }

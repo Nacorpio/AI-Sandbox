@@ -1,11 +1,13 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Features.Models;
+using AISandbox.Application.Features.Prompts;
 using AISandbox.Application.Features.Providers;
 using AISandbox.Application.Features.QuestionSets;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Infrastructure.Persistence;
 using AISandbox.Infrastructure.Protocols;
+using AISandbox.Infrastructure.Protocols.Chat;
 using AISandbox.Infrastructure.Protocols.SystemOne;
 using AISandbox.Infrastructure.Runs;
 using AISandbox.Infrastructure.Secrets;
@@ -44,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IModelQueries, ModelQueries>();
         services.AddScoped<IQuestionSetRepository, QuestionSetRepository>();
         services.AddScoped<IQuestionSetQueries, QuestionSetQueries>();
+        services.AddScoped<IPromptTemplateRepository, PromptTemplateRepository>();
         services.AddScoped<IRunRepository, RunRepository>();
         services.AddScoped<IRunQueries, RunQueries>();
 
@@ -78,6 +81,7 @@ public static class DependencyInjection
         services.AddKeyedSingleton<IModelInvoker, SystemOneInvoker>(ProtocolId.SystemOne.Value);
         services.AddKeyedSingleton<IModelInvoker, OpenRouterDecisionsInvoker>(ProtocolId.OpenRouterDecisions.Value);
         services.AddKeyedSingleton<IModelInvoker, WorkersAiInvoker>(ProtocolId.WorkersAi.Value);
+        services.AddKeyedSingleton<IModelInvoker, OpenAiChatInvoker>(ProtocolId.OpenAiChat.Value);
 
         return services;
     }

@@ -57,7 +57,8 @@ internal sealed class EmbeddedTemplateCatalog : ITemplateCatalog
                     route.Capabilities.AcceptsImages,
                     route.Capabilities.MaxQuestions,
                     route.Capabilities.ContextTokens,
-                    route.Capabilities.QuestionTypes ?? []),
+                    route.Capabilities.QuestionTypes ?? [],
+                    route.Capabilities.SupportsStructuredOutputs),
                 PricingSchedule.Create(
                     route.Pricing.Currency,
                     route.Pricing.InputPerMillion,
@@ -107,7 +108,7 @@ internal sealed class EmbeddedTemplateCatalog : ITemplateCatalog
         CapabilitiesDocument Capabilities,
         PricingDocument Pricing);
 
-    private sealed record CapabilitiesDocument(bool AcceptsImages, int MaxQuestions, int? ContextTokens, IReadOnlyList<string>? QuestionTypes);
+    private sealed record CapabilitiesDocument(bool AcceptsImages, int MaxQuestions, int? ContextTokens, IReadOnlyList<string>? QuestionTypes, bool SupportsStructuredOutputs = false);
 
     private sealed record PricingDocument(string Currency, decimal InputPerMillion, decimal OutputPerMillion, decimal? CacheReadPerMillion);
 }

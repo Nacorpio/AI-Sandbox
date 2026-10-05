@@ -1,4 +1,5 @@
 using AISandbox.Application.Abstractions;
+using AISandbox.Domain.Authoring.Prompts;
 using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Catalog.Providers;
@@ -15,6 +16,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ModelDefinition> ModelDefinitions => Set<ModelDefinition>();
 
     public DbSet<QuestionSet> QuestionSets => Set<QuestionSet>();
+
+    public DbSet<PromptTemplate> PromptTemplates => Set<PromptTemplate>();
 
     public DbSet<Run> Runs => Set<Run>();
 

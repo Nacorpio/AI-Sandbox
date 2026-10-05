@@ -113,3 +113,21 @@ h1:focus {
     .answer-matrix tr.matrix-disagree > th:first-child {
         box-shadow: inset 3px 0 0 var(--mud-palette-warning);
     }
+
+.markdown-body { line-height: 1.55; word-break: break-word; }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+.markdown-body pre { background: var(--mud-palette-background-gray); padding: 0.75rem; border-radius: 4px; overflow: auto; }
+.markdown-body code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.85em; }
+.markdown-body table { border-collapse: collapse; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--mud-palette-lines-default); padding: 0.25rem 0.6rem; }
+.markdown-body blockquote { margin-left: 0; padding-left: 1rem; border-left: 3px solid var(--mud-palette-lines-default); }
+
+.json-tree { list-style: none; margin: 0; padding-left: 1.1rem; border-left: 1px solid var(--mud-palette-lines-default); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.85rem; }
+.json-tree > li { padding: 1px 0; }
+.json-key { color: var(--mud-palette-primary); margin-right: 0.5rem; }
+.json-key::after { content: ":"; }
+.json-meta { color: var(--mud-palette-text-secondary); }
+.json-string { color: var(--mud-palette-success); white-space: pre-wrap; }
+.json-number { color: var(--mud-palette-info); }
+.json-literal { color: var(--mud-palette-warning); }

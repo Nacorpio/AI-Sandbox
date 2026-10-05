@@ -26,6 +26,8 @@ public sealed record ExecutionView(
     string? RawResponse,
     int Attempts = 0);
 
+public sealed record PromptView(string? System, string User, string? TemplateName, bool HasOutputSchema);
+
 public sealed record RunView(
     RunId Id,
     DateTimeOffset CreatedAt,
@@ -33,7 +35,8 @@ public sealed record RunView(
     string State,
     IReadOnlyList<QuestionView> Questions,
     IReadOnlyList<ExecutionView> Executions,
-    QuestionSetRef? QuestionSet = null);
+    QuestionSetRef? QuestionSet = null,
+    PromptView? Prompt = null);
 
 public sealed class GetRunHandler(IRunRepository runs) : IQueryHandler<GetRun, RunView?>
 {
@@ -47,7 +50,7 @@ public sealed class GetRunHandler(IRunRepository runs) : IQueryHandler<GetRun, R
         run.Id,
         run.CreatedAt,
         run.Status,
-        run.Input.State.Display,
+        run.Input.State?.Display ?? string.Empty,
         run.Input.Questions.Select(q => new QuestionView(q.Key.Value, q.Type.ToString(), q.Instructions.Display)).ToList(),
         run.Executions.Select(e => new ExecutionView(
             e.Id,
@@ -65,7 +68,8 @@ public sealed class GetRunHandler(IRunRepository runs) : IQueryHandler<GetRun, R
             e.RawRequest,
             e.RawResponse,
             e.Attempts)).ToList(),
-        run.Input.QuestionSet);
+        run.Input.QuestionSet,
+        run.Input.Chat is { } chat ? new PromptView(chat.System, chat.User, chat.Template?.Name, chat.OutputSchema is not null) : null);
 }
 
 public sealed record ListRuns(int Limit = 50);

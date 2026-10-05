@@ -1,0 +1,65 @@
+@using System.Text.Json
+
+@if (Element.ValueKind == JsonValueKind.Object)
+{
+    <ul class="json-tree">
+        @foreach (var property in Element.EnumerateObject())
+        {
+            <li>
+                <span class="json-key">@property.Name</span>
+                @if (IsContainer(property.Value))
+                {
+                    <span class="json-meta">@Summary(property.Value)</span>
+                    <JsonTree Element="property.Value" />
+                }
+                else
+                {
+                    <span class="@ValueClass(property.Value)">@Scalar(property.Value)</span>
+                }
+            </li>
+        }
+    </ul>
+}
+else if (Element.ValueKind == JsonValueKind.Array)
+{
+    <ul class="json-tree">
+        @{ var index = 0; }
+        @foreach (var item in Element.EnumerateArray())
+        {
+            <li>
+                <span class="json-key">@(index++)</span>
+                @if (IsContainer(item))
+                {
+                    <span class="json-meta">@Summary(item)</span>
+                    <JsonTree Element="item" />
+                }
+                else
+                {
+                    <span class="@ValueClass(item)">@Scalar(item)</span>
+                }
+            </li>
+        }
+    </ul>
+}
+else
+{
+    <span class="@ValueClass(Element)">@Scalar(Element)</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public JsonElement Element { get; set; }
+
+    private static bool IsContainer(JsonElement e) => e.ValueKind is JsonValueKind.Object or JsonValueKind.Array;
+
+    private static string Summary(JsonElement e) =>
+        e.ValueKind == JsonValueKind.Array ? $"[{e.GetArrayLength()}]" : $"{{{e.EnumerateObject().Count()}}}";
+
+    private static string Scalar(JsonElement e) => e.ValueKind == JsonValueKind.String ? $"\"{e.GetString()}\"" : e.GetRawText();
+
+    private static string ValueClass(JsonElement e) => e.ValueKind switch
+    {
+        JsonValueKind.String => "json-string",
+        JsonValueKind.Number => "json-number",
+        _ => "json-literal",
+    };
+}

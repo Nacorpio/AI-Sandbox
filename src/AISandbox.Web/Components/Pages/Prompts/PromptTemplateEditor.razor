@@ -1,0 +1,126 @@
+@page "/prompts/new"
+@page "/prompts/{Id:guid}"
+@using AISandbox.Application.Features.Prompts
+@using AISandbox.Domain.Authoring.Prompts
+@inject UseCases UseCases
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>@(IsNew ? "New prompt" : _name) · AI Sandbox</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (!IsNew && !_found)
+{
+    <MudAlert Severity="Severity.Warning">Prompt not found. <MudLink Href="prompts">Back to prompts</MudLink></MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h4">@(IsNew ? "New prompt" : "Edit prompt")</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" Href="prompts">Back</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">@(_saving ? "Saving…" : "Save")</MudButton>
+    </MudStack>
+
+    <MudStack Spacing="3">
+        <MudTextField @bind-Value="_name" Label="Name" Variant="Variant.Outlined" MaxLength="PromptTemplate.MaxNameLength" Immediate="true" />
+        <MudTextField @bind-Value="_system" Label="System prompt (optional)" Variant="Variant.Outlined" Lines="3" Sizing="InputSizing.Auto" MaxLines="12" Immediate="true" />
+        <MudTextField @bind-Value="_user" Label="User prompt" Variant="Variant.Outlined" Lines="5" Sizing="InputSizing.Auto" MaxLines="20" Immediate="true"
+                      HelperText="Use {{placeholder}} for values filled in when you start a run. Names are letters, digits and underscores." />
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Placeholders:</MudText>
+            @if (Placeholders.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">none</MudText>
+            }
+            @foreach (var placeholder in Placeholders)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><code>@placeholder</code></MudChip>
+            }
+        </MudStack>
+        <MudTextField @bind-Value="_schema" Label="Output JSON schema (optional)" Variant="Variant.Outlined" Lines="4" Sizing="InputSizing.Auto" MaxLines="20"
+                      HelperText="Models that support structured outputs are asked to follow it; the reply is shown as a tree." />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+    </MudStack>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsNew => Id is null;
+
+    private bool _loading = true;
+    private bool _found;
+    private bool _saving;
+    private string? _name;
+    private string? _system;
+    private string? _user;
+    private string? _schema;
+    private string? _error;
+
+    private IReadOnlyList<string> Placeholders => PlaceholderSyntax.In(_system, _user);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+        _found = false;
+        if (Id is { } id)
+        {
+            var template = await UseCases.QueryAsync<GetPromptTemplate, PromptTemplateView?>(new GetPromptTemplate(new PromptTemplateId(id)));
+            if (template is not null)
+            {
+                _found = true;
+                (_name, _system, _user, _schema) = (template.Name, template.SystemPrompt, template.UserPrompt, template.OutputSchema);
+            }
+        }
+        else
+        {
+            (_name, _system, _user, _schema) = (null, null, null, null);
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        if (Id is { } id)
+        {
+            var result = await UseCases.SendAsync<UpdatePromptTemplate, PromptTemplateId>(
+                new UpdatePromptTemplate(new PromptTemplateId(id), _name, _system, _user, _schema));
+            if (result.IsSuccess)
+            {
+                Snackbar.Add("Prompt saved.", Severity.Success);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        else
+        {
+            var result = await UseCases.SendAsync<CreatePromptTemplate, PromptTemplateId>(
+                new CreatePromptTemplate(_name, _system, _user, _schema));
+            if (result.IsSuccess)
+            {
+                Snackbar.Add("Prompt created.", Severity.Success);
+                Navigation.NavigateTo($"prompts/{result.Value}");
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+
+        _saving = false;
+    }
+}

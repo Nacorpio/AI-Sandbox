@@ -1,0 +1,55 @@
+@page "/prompts"
+@using AISandbox.Application.Features.Prompts
+@inject UseCases UseCases
+@inject NavigationManager Navigation
+
+<PageTitle>Prompts · AI Sandbox</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Prompts</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="prompts/new">New prompt</MudButton>
+</MudStack>
+
+@if (_templates is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_templates.Count == 0)
+{
+    <MudPaper Outlined="true" Class="pa-8 d-flex flex-column align-center">
+        <MudIcon Icon="@Icons.Material.Outlined.Article" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Class="mt-3">No prompts yet.</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Write a prompt with {{placeholders}} once, then fill it in when you start a run with a chat model.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="_templates" Hover="true" Outlined="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+              OnRowClick="@((TableRowClickEventArgs<PromptTemplateView> e) => Navigation.NavigateTo($"prompts/{e.Item!.Id}"))" RowClass="cursor-pointer">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Placeholders</MudTh>
+            <MudTh>Output schema</MudTh>
+            <MudTh>Updated</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Placeholders">
+                @foreach (var placeholder in context.Placeholders)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><code>@placeholder</code></MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Output schema">@(context.OutputSchema is null ? "–" : "Yes")</MudTd>
+            <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("g")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private IReadOnlyList<PromptTemplateView>? _templates;
+
+    protected override async Task OnInitializedAsync() =>
+        _templates = await UseCases.QueryAsync<ListPromptTemplates, IReadOnlyList<PromptTemplateView>>(new ListPromptTemplates());
+}

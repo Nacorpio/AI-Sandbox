@@ -42,7 +42,7 @@ internal static class DomainJson
     {
         if (info.Type == typeof(NormalizedOutput))
         {
-            info.PolymorphismOptions = Polymorphism("kind", (typeof(DecisionOutput), "decision"));
+            info.PolymorphismOptions = Polymorphism("kind", (typeof(DecisionOutput), "decision"), (typeof(ChatOutput), "chat"));
         }
         else if (info.Type == typeof(Answer))
         {
@@ -128,7 +128,12 @@ internal static class DomainJson
 
     private sealed record QuestionSetRefDocument(Guid Id, int Version);
 
-    private sealed record RunInputDocument(StructuredText State, IReadOnlyList<Question> Questions, QuestionSetRefDocument? QuestionSet = null);
+    private sealed record RunInputDocument(
+        StructuredText? State,
+        IReadOnlyList<Question>? Questions,
+        QuestionSetRefDocument? QuestionSet = null,
+        ChatPrompt? Chat = null,
+        IReadOnlyDictionary<Guid, ChatOptions>? ChatOptions = null);
 
     private sealed class RunInputConverter : JsonConverter<RunInput>
     {
@@ -136,14 +141,17 @@ internal static class DomainJson
         {
             var document = JsonSerializer.Deserialize<RunInputDocument>(ref reader, options)!;
             var reference = document.QuestionSet is { } r ? new QuestionSetRef(new QuestionSetId(r.Id), r.Version) : null;
-            return RunInput.Create(document.State, document.Questions, reference).Value;
+            var chatOptions = document.ChatOptions?.ToDictionary(o => new ModelDefinitionId(o.Key), o => o.Value);
+            return RunInput.Create(document.State, document.Questions ?? [], reference, document.Chat, chatOptions).Value;
         }
 
         public override void Write(Utf8JsonWriter writer, RunInput value, JsonSerializerOptions options) =>
             JsonSerializer.Serialize(writer, new RunInputDocument(
                 value.State,
                 value.Questions,
-                value.QuestionSet is { } r ? new QuestionSetRefDocument(r.Id.Value, r.Version) : null),
+                value.QuestionSet is { } r ? new QuestionSetRefDocument(r.Id.Value, r.Version) : null,
+                value.Chat,
+                value.ChatOptions.Count == 0 ? null : value.ChatOptions.ToDictionary(o => o.Key.Value, o => o.Value)),
                 options);
     }
 

@@ -1,7 +1,9 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Features.Models;
+using AISandbox.Application.Features.Prompts;
 using AISandbox.Application.Features.Providers;
 using AISandbox.Application.Features.QuestionSets;
+using AISandbox.Domain.Authoring.Prompts;
 using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Catalog.Models;
@@ -32,6 +34,11 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<UpdateQuestionSet, QuestionSetRef>, UpdateQuestionSetHandler>();
         services.AddScoped<IQueryHandler<ListQuestionSets, IReadOnlyList<QuestionSetSummary>>, ListQuestionSetsHandler>();
         services.AddScoped<IQueryHandler<GetQuestionSet, QuestionSetView?>, GetQuestionSetHandler>();
+
+        services.AddScoped<ICommandHandler<CreatePromptTemplate, PromptTemplateId>, CreatePromptTemplateHandler>();
+        services.AddScoped<ICommandHandler<UpdatePromptTemplate, PromptTemplateId>, UpdatePromptTemplateHandler>();
+        services.AddScoped<IQueryHandler<ListPromptTemplates, IReadOnlyList<PromptTemplateView>>, ListPromptTemplatesHandler>();
+        services.AddScoped<IQueryHandler<GetPromptTemplate, PromptTemplateView?>, GetPromptTemplateHandler>();
 
         services.AddScoped<ICommandHandler<StartRun, RunId>, StartRunHandler>();
         services.AddScoped<ICommandHandler<CancelRun, RunId>, CancelRunHandler>();

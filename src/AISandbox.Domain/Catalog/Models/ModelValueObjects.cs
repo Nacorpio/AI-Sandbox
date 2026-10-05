@@ -70,7 +70,8 @@ public sealed record ModelCapabilities(
     bool AcceptsImages,
     int MaxQuestions,
     int? ContextTokens,
-    IReadOnlyList<string> QuestionTypes)
+    IReadOnlyList<string> QuestionTypes,
+    bool SupportsStructuredOutputs = false)
 {
     public static ModelCapabilities ChatDefaults { get; } = new(false, 0, null, []);
 }

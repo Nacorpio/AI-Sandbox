@@ -99,7 +99,8 @@ public sealed class RunExecutor(
             activity?.SetTag("model.protocol", model.Protocol.Value);
 
             var outcome = await plan.Invoker!.InvokeAsync(
-                new InvocationRequest(provider.BaseUrl, provider.Auth, plan.ApiKey, model.RemoteId, run.Input, provider.PathVariables),
+                new InvocationRequest(provider.BaseUrl, provider.Auth, plan.ApiKey, model.RemoteId, run.Input, provider.PathVariables,
+                    run.Input.ChatOptionsFor(model.Id), model.Capabilities),
                 cancellationToken);
 
             switch (outcome)

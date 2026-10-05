@@ -1,0 +1,50 @@
+@using System.Text.Json
+@using AISandbox.Domain.Experimentation
+
+<MudStack Spacing="3">
+    @if (_tree is { } tree)
+    {
+        <div>
+            <MudText Typo="Typo.overline">Structured output</MudText>
+            <JsonTree Element="tree" />
+        </div>
+    }
+    else
+    {
+        <MarkdownText Text="@Output.Text" />
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Output.Reasoning))
+    {
+        <MudExpansionPanels Elevation="0" Outlined="true">
+            <MudExpansionPanel Text="@ReasoningTitle">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary" Style="white-space: pre-wrap">@Output.Reasoning</MudText>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public ChatOutput Output { get; set; } = default!;
+
+    private string ReasoningTitle =>
+        Output.ReasoningTokens is { } tokens ? $"Reasoning · {tokens:N0} tokens" : "Reasoning";
+
+    private JsonElement? _tree;
+
+    protected override void OnParametersSet()
+    {
+        _tree = null;
+        if (Output.StructuredJson is { } json)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                _tree = document.RootElement.Clone();
+            }
+            catch (JsonException)
+            {
+            }
+        }
+    }
+}
