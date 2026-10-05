@@ -32,6 +32,8 @@ public sealed class SandboxHost : IAsyncDisposable
 
     public SqliteConnection Database => _keepAlive;
 
+    public IServiceProvider Services => _services;
+
     public static async Task<SandboxHost> StartAsync(IDictionary<string, string?>? settings = null)
     {
         var connectionString = $"Data Source=sandbox-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
@@ -39,6 +41,7 @@ public sealed class SandboxHost : IAsyncDisposable
         await keepAlive.OpenAsync();
 
         var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["ProviderResilience:BaseDelay"] = "00:00:00.010" })
             .AddInMemoryCollection(new Dictionary<string, string?>(settings ?? new Dictionary<string, string?>())
             {
                 [$"ConnectionStrings:{Infrastructure.DependencyInjection.ConnectionStringName}"] = connectionString,

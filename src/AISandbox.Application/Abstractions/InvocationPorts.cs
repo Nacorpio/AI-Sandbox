@@ -20,7 +20,7 @@ public abstract record InvocationOutcome;
 
 public sealed record InvocationSucceeded(InvocationSuccess Success) : InvocationOutcome;
 
-public sealed record InvocationFailed(ExecutionError Error, Latency? Latency, string? RawRequest, string? RawResponse) : InvocationOutcome;
+public sealed record InvocationFailed(ExecutionError Error, Latency? Latency, string? RawRequest, string? RawResponse, int Attempts = 0) : InvocationOutcome;
 
 /// <summary>
 /// Speaks one protocol. Invokers report provider errors as <see cref="InvocationFailed"/> and

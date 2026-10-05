@@ -20,8 +20,12 @@
             <MudTabPanel Text="Answers">
                 @if (Execution.Error is { } error)
                 {
-                    <MudAlert Severity="@(error.Code == ExecutionError.CancelledCode ? Severity.Normal : Severity.Error)" Dense="true">
+                    <MudAlert Severity="@(error.Code == ExecutionError.CancelledCode ? Severity.Normal : error.Code == ExecutionError.RateLimitedCode ? Severity.Warning : Severity.Error)" Dense="true">
                         <strong>@error.Code</strong> · @error.Message
+                        @if (error.Code == ExecutionError.RateLimitedCode)
+                        {
+                            <MudText Typo="Typo.caption">The provider rate-limited this request.</MudText>
+                        }
                     </MudAlert>
                 }
                 else if (Execution.Output is DecisionOutput decision)

@@ -40,7 +40,7 @@ internal sealed class WorkersAiInvoker(ProviderHttp http) : IModelInvoker
             var root = document.RootElement;
             if (EnvelopeError(root) is { } error)
             {
-                return new InvocationFailed(error, response.Latency, body, response.Body);
+                return new InvocationFailed(error, response.Latency, body, response.Body, response.Attempts);
             }
 
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("result", out var result))
@@ -50,7 +50,7 @@ internal sealed class WorkersAiInvoker(ProviderHttp http) : IModelInvoker
 
             var parsed = SystemOneContract.ParseResponse(result);
             return new InvocationSucceeded(new InvocationSuccess(
-                parsed.Output, parsed.Usage, null, response.Latency, parsed.ResolvedModel, body, response.Body));
+                parsed.Output, parsed.Usage, null, response.Latency, parsed.ResolvedModel, body, response.Body, response.Attempts));
         }
         catch (Exception exception) when (exception is JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
         {
@@ -61,7 +61,7 @@ internal sealed class WorkersAiInvoker(ProviderHttp http) : IModelInvoker
     /// <summary>Non-2xx responses carry the envelope too; prefer its error over the generic http one.</summary>
     private static InvocationFailed Unwrap(InvocationFailed failure)
     {
-        if (failure.RawResponse is null)
+        if (failure.RawResponse is null || failure.Error.Code == ExecutionError.RateLimitedCode)
         {
             return failure;
         }

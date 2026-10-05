@@ -23,7 +23,8 @@ public sealed record ExecutionView(
     string? ResolvedModel,
     ExecutionError? Error,
     string? RawRequest,
-    string? RawResponse);
+    string? RawResponse,
+    int Attempts = 0);
 
 public sealed record RunView(
     RunId Id,
@@ -62,7 +63,8 @@ public sealed class GetRunHandler(IRunRepository runs) : IQueryHandler<GetRun, R
             e.ResolvedModel,
             e.Error,
             e.RawRequest,
-            e.RawResponse)).ToList(),
+            e.RawResponse,
+            e.Attempts)).ToList(),
         run.Input.QuestionSet);
 }
 

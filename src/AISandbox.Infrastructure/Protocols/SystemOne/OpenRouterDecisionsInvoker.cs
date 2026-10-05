@@ -30,7 +30,7 @@ internal sealed class OpenRouterDecisionsInvoker(ProviderHttp http) : IModelInvo
             var parsed = SystemOneContract.ParseResponse(document.RootElement);
             Money? cost = parsed.Cost is { } amount ? new Money(amount, Money.Usd) : null;
             return new InvocationSucceeded(new InvocationSuccess(
-                parsed.Output, parsed.Usage, cost, response.Latency, parsed.ResolvedModel, body, response.Body));
+                parsed.Output, parsed.Usage, cost, response.Latency, parsed.ResolvedModel, body, response.Body, response.Attempts));
         }
         catch (Exception exception) when (exception is JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
         {
