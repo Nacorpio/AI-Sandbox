@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 
 namespace AISandbox.Infrastructure;
@@ -24,7 +25,6 @@ public static class DependencyInjection
     public const string ConnectionStringName = "AISandbox";
     public const string DefaultConnectionString = "Data Source=aisandbox.db";
     private static readonly TimeSpan ConnectionTestTimeout = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan ProviderTimeout = TimeSpan.FromSeconds(60);
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
@@ -57,7 +57,20 @@ public static class DependencyInjection
         services.AddSingleton<IRunScheduler>(sp => sp.GetRequiredService<RunScheduler>());
         services.AddHostedService<RunWorker>();
 
-        services.AddHttpClient(ProviderHttp.ClientName, client => client.Timeout = ProviderTimeout);
+        services.AddOptions<ProviderResilience>()
+            .Bind(configuration.GetSection(ProviderResilience.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<ProviderResilience>, ProviderResilienceValidator>();
+        services.AddTransient<AttemptCountingHandler>();
+        var providerClient = services.AddHttpClient(ProviderHttp.ClientName, client => client.Timeout = Timeout.InfiniteTimeSpan);
+        providerClient
+            .AddResilienceHandler(ProviderHttp.ClientName, (builder, context) =>
+                ProviderPipeline.Configure(
+                    builder,
+                    context.ServiceProvider.GetRequiredService<IOptions<ProviderResilience>>().Value,
+                    context.ServiceProvider.GetService<TimeProvider>() ?? TimeProvider.System))
+            .SelectPipelineByAuthority();
+        providerClient.AddHttpMessageHandler<AttemptCountingHandler>();
         services.AddSingleton<ProviderHttp>();
         services.AddHttpClient(ProviderConnectionTester.ClientName, client => client.Timeout = ConnectionTestTimeout);
         services.AddSingleton<IProviderConnectionTester, ProviderConnectionTester>();

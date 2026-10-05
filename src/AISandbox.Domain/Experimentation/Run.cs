@@ -58,7 +58,8 @@ public sealed record InvocationSuccess(
     Latency Latency,
     string? ResolvedModel,
     string RawRequest,
-    string RawResponse);
+    string RawResponse,
+    int Attempts = 1);
 
 /// <summary>
 /// One input sent to one or more models at the same time.
@@ -132,10 +133,10 @@ public sealed class Run : AggregateRoot<RunId>
         CompleteIfDone(now);
     }
 
-    public void RecordFailure(ExecutionId executionId, ExecutionError error, Latency? latency, string? rawRequest, string? rawResponse, DateTimeOffset now)
+    public void RecordFailure(ExecutionId executionId, ExecutionError error, Latency? latency, string? rawRequest, string? rawResponse, DateTimeOffset now, int attempts = 0)
     {
         var execution = Find(executionId);
-        execution.Fail(error, latency, rawRequest, rawResponse, now);
+        execution.Fail(error, latency, rawRequest, rawResponse, now, attempts);
         Raise(new ExecutionFailed(Id, executionId, error.Code, now));
         CompleteIfDone(now);
     }
@@ -207,7 +208,6 @@ public sealed class ModelExecution : Entity<ExecutionId>
         EnsureNotFinished();
         Status = ExecutionStatus.Running;
         StartedAt ??= now;
-        Attempts++;
     }
 
     internal void Succeed(InvocationSuccess success, DateTimeOffset now)
@@ -223,10 +223,11 @@ public sealed class ModelExecution : Entity<ExecutionId>
         ResolvedModel = success.ResolvedModel;
         RawRequest = success.RawRequest;
         RawResponse = success.RawResponse;
+        Attempts = success.Attempts;
         CompletedAt = now;
     }
 
-    internal void Fail(ExecutionError error, Latency? latency, string? rawRequest, string? rawResponse, DateTimeOffset now)
+    internal void Fail(ExecutionError error, Latency? latency, string? rawRequest, string? rawResponse, DateTimeOffset now, int attempts = 0)
     {
         EnsureNotFinished();
         Status = ExecutionStatus.Failed;
@@ -234,6 +235,7 @@ public sealed class ModelExecution : Entity<ExecutionId>
         Latency = latency;
         RawRequest = rawRequest;
         RawResponse = rawResponse;
+        Attempts = attempts;
         CompletedAt = now;
     }
 

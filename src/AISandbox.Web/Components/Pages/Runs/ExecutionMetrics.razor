@@ -5,6 +5,12 @@
 {
     <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Timer" Variant="Variant.Outlined">@Format.Duration(latency.Total)</MudChip>
 }
+@if (Execution.Attempts > 1)
+{
+    <MudTooltip Text="HTTP attempts made, including retries">
+        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Replay" Color="Color.Warning" Variant="Variant.Outlined">@Execution.Attempts attempts</MudChip>
+    </MudTooltip>
+}
 @if (Execution.Usage is { } usage)
 {
     <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.DataUsage" Variant="Variant.Outlined">@Format.Tokens(usage)</MudChip>

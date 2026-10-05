@@ -109,7 +109,7 @@ public sealed class RunExecutor(
                     activity?.SetTag("tokens.input", succeeded.Success.Usage.InputTokens);
                     break;
                 case InvocationFailed failed:
-                    await ChangeAsync(run, gate, r => r.RecordFailure(plan.ExecutionId, failed.Error, failed.Latency, failed.RawRequest, failed.RawResponse, time.GetUtcNow()));
+                    await ChangeAsync(run, gate, r => r.RecordFailure(plan.ExecutionId, failed.Error, failed.Latency, failed.RawRequest, failed.RawResponse, time.GetUtcNow(), failed.Attempts));
                     activity?.SetStatus(ActivityStatusCode.Error, failed.Error.Code);
                     break;
             }

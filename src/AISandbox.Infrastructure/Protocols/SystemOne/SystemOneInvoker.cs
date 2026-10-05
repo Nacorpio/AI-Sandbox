@@ -27,7 +27,7 @@ internal sealed class SystemOneInvoker(ProviderHttp http) : IModelInvoker
             using var document = JsonDocument.Parse(response!.Body);
             var parsed = SystemOneContract.ParseResponse(document.RootElement);
             return new InvocationSucceeded(new InvocationSuccess(
-                parsed.Output, parsed.Usage, null, response.Latency, parsed.ResolvedModel, body, response.Body));
+                parsed.Output, parsed.Usage, null, response.Latency, parsed.ResolvedModel, body, response.Body, response.Attempts));
         }
         catch (Exception exception) when (exception is JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
         {

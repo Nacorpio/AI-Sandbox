@@ -5,6 +5,8 @@ using System.Text.Json;
 using AISandbox.Application.Abstractions;
 using AISandbox.Domain.Catalog.Providers;
 using AISandbox.Domain.Experimentation;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace AISandbox.Infrastructure.Protocols;
 
@@ -17,7 +19,7 @@ internal sealed class ProviderHttp(IHttpClientFactory clients, TimeProvider time
     public const string ClientName = "providers";
     private const int MaxErrorMessageLength = 500;
 
-    public sealed record Response(string Body, Latency Latency);
+    public sealed record Response(string Body, Latency Latency, int Attempts = 1);
 
     public async Task<(Response? Response, InvocationFailed? Failure)> PostJsonAsync(
         Uri url,
@@ -30,6 +32,8 @@ internal sealed class ProviderHttp(IHttpClientFactory clients, TimeProvider time
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
         ApplyAuth(message, request);
+        var attempts = new AttemptCounter();
+        message.Options.Set(AttemptCounter.Key, attempts);
 
         var client = clients.CreateClient(ClientName);
         var started = time.GetTimestamp();
@@ -44,27 +48,34 @@ internal sealed class ProviderHttp(IHttpClientFactory clients, TimeProvider time
             if (!response.IsSuccessStatusCode)
             {
                 var status = (int)response.StatusCode;
-                var error = new ExecutionError($"http.{status}", DescribeError(status, responseBody), status);
-                return (null, new InvocationFailed(error, latency, body, responseBody));
+                var error = status == 429
+                    ? new ExecutionError(ExecutionError.RateLimitedCode, DescribeRateLimit(status, responseBody, response), status)
+                    : new ExecutionError($"http.{status}", DescribeError(status, responseBody), status);
+                return (null, new InvocationFailed(error, latency, body, responseBody, attempts.Count));
             }
 
-            return (new Response(responseBody, latency), null);
+            return (new Response(responseBody, latency, attempts.Count), null);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when (exception is OperationCanceledException or TimeoutRejectedException && !cancellationToken.IsCancellationRequested)
         {
-            var latency = new Latency(time.GetElapsedTime(started), firstByte);
-            return (null, new InvocationFailed(new ExecutionError("timeout", "The provider did not respond in time.", null), latency, body, null));
+            return (null, Failed("timeout", "The provider did not respond in time."));
+        }
+        catch (BrokenCircuitException)
+        {
+            return (null, Failed(ExecutionError.CircuitOpenCode, "Too many recent failures from this provider; calls are paused briefly. Try again shortly."));
         }
         catch (HttpRequestException exception)
         {
-            var latency = new Latency(time.GetElapsedTime(started), firstByte);
-            return (null, new InvocationFailed(new ExecutionError("network", exception.Message, null), latency, body, null));
+            return (null, Failed("network", exception.Message));
         }
+
+        InvocationFailed Failed(string code, string message) =>
+            new(new ExecutionError(code, message, null), new Latency(time.GetElapsedTime(started), firstByte), body, null, attempts.Count);
     }
 
     public static InvocationFailed InvalidResponse(string requestBody, Response response, string reason) =>
         new(new ExecutionError("response.invalid", $"The provider's response did not match the protocol: {reason}", null),
-            response.Latency, requestBody, response.Body);
+            response.Latency, requestBody, response.Body, response.Attempts);
 
     public static Uri Combine(EndpointUri baseUrl, string path) =>
         new($"{baseUrl.Value.ToString().TrimEnd('/')}/{path.TrimStart('/')}");
@@ -85,6 +96,15 @@ internal sealed class ProviderHttp(IHttpClientFactory clients, TimeProvider time
                 message.Headers.TryAddWithoutValidation(request.Auth.HeaderName!, request.ApiKey);
                 break;
         }
+    }
+
+    private static string DescribeRateLimit(int status, string body, HttpResponseMessage response)
+    {
+        var message = DescribeError(status, body);
+        var retryAfter = response.Headers.RetryAfter is { } header
+            ? header.Delta is { } delta ? $"{(int)Math.Ceiling(delta.TotalSeconds)} s" : header.Date?.ToString("R")
+            : null;
+        return retryAfter is null ? message : $"{message} (retry-after: {retryAfter})";
     }
 
     /// <summary>

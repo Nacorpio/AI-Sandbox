@@ -50,6 +50,8 @@ public enum CostSource
 public sealed record ExecutionError(string Code, string Message, int? HttpStatus)
 {
     public const string CancelledCode = "cancelled";
+    public const string RateLimitedCode = "rate_limited";
+    public const string CircuitOpenCode = "circuit_open";
 
     public static ExecutionError Cancelled { get; } = new(CancelledCode, "The run was cancelled before this model answered.", null);
 }
