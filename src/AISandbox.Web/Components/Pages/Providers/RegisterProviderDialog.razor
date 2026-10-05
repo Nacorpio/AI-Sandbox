@@ -1,0 +1,109 @@
+@using AISandbox.Application.Features.Providers
+@using AISandbox.Domain.Catalog.Providers
+@inject UseCases UseCases
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="ProviderKind" Label="Kind" Value="_kind" ValueChanged="KindChanged" Variant="Variant.Outlined">
+                @foreach (var kind in Enum.GetValues<ProviderKind>())
+                {
+                    <MudSelectItem Value="kind">@ProviderDisplay.KindName(kind)</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField @bind-Value="_name" Label="Name" Variant="Variant.Outlined" Required="true"
+                          Error="@HasError("name")" ErrorText="@ErrorFor("name")" MaxLength="Provider.MaxNameLength" />
+
+            <MudTextField @bind-Value="_baseUrl" Label="Base URL" Variant="Variant.Outlined" Required="true"
+                          Error="@HasError("baseUrl")" ErrorText="@ErrorFor("baseUrl")" InputType="InputType.Url" />
+
+            <MudTextField @bind-Value="_apiKey" Label="API key" Variant="Variant.Outlined" InputType="InputType.Password"
+                          Disabled="@(_auth == AuthSchemeKind.None)"
+                          HelperText="@KeyHelp" autocomplete="off" />
+
+            <MudExpansionPanels Elevation="0" Outlined="true">
+                <MudExpansionPanel Text="More options">
+                    <MudStack Spacing="3">
+                        <MudSelect T="AuthSchemeKind" @bind-Value="_auth" Label="Authentication" Variant="Variant.Outlined"
+                                   Error="@HasError("auth")" ErrorText="@ErrorFor("auth")">
+                            @foreach (var kind in Enum.GetValues<AuthSchemeKind>())
+                            {
+                                <MudSelectItem Value="kind">@ProviderDisplay.AuthName(kind)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (_auth == AuthSchemeKind.Header)
+                        {
+                            <MudTextField @bind-Value="_headerName" Label="Header name" Variant="Variant.Outlined" Placeholder="X-Api-Key" />
+                        }
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            @if (_error is { } error && !IsFieldError(error.Code))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@error.Message</MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync" Disabled="_saving">Register</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private ProviderKind _kind = ProviderKind.OpenRouter;
+    private string? _name = "OpenRouter";
+    private string? _baseUrl = ProviderDefaults.BaseUrlFor(ProviderKind.OpenRouter);
+    private string? _apiKey;
+    private AuthSchemeKind _auth = AuthSchemeKind.Bearer;
+    private string? _headerName;
+    private AISandbox.Domain.Abstractions.Error? _error;
+    private bool _saving;
+
+    private string KeyHelp => ProviderDefaults.EnvironmentVariableFor(_kind) is { } variable
+        ? $"Stored encrypted. {variable} overrides it when set."
+        : "Stored encrypted. Leave empty to add later.";
+
+    private void KindChanged(ProviderKind kind)
+    {
+        // Replace the prefilled values only if the user has not typed their own.
+        if (_name == ProviderDisplay.KindName(_kind) || string.IsNullOrWhiteSpace(_name))
+        {
+            _name = ProviderDisplay.KindName(kind);
+        }
+
+        if (_baseUrl == ProviderDefaults.BaseUrlFor(_kind) || string.IsNullOrWhiteSpace(_baseUrl))
+        {
+            _baseUrl = ProviderDefaults.BaseUrlFor(kind);
+        }
+
+        _kind = kind;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _saving = true;
+        var result = await UseCases.SendAsync<RegisterProvider, ProviderId>(
+            new RegisterProvider(_name, _kind, _baseUrl, _auth, _headerName, _apiKey));
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            _apiKey = null;
+            MudDialog.Close(DialogResult.Ok(result.Value));
+            return;
+        }
+
+        _error = result.Error;
+    }
+
+    private static bool IsFieldError(string code) => code is "validation.name" or "validation.baseUrl" or "validation.auth";
+
+    private bool HasError(string field) => _error?.Code == $"validation.{field}";
+
+    private string? ErrorFor(string field) => HasError(field) ? _error!.Message : null;
+}

@@ -1,0 +1,67 @@
+@page "/providers"
+@using AISandbox.Application.Features.Providers
+@inject UseCases UseCases
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Providers · AI Sandbox</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Providers</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="RegisterAsync">
+        Register provider
+    </MudButton>
+</MudStack>
+
+@if (_providers is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_providers.Count == 0)
+{
+    <MudPaper Outlined="true" Class="pa-8 d-flex flex-column align-center">
+        <MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Class="mt-3">No providers yet.</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Register one to start adding models.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="_providers" Hover="true" Outlined="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Kind</MudTh>
+            <MudTh>Base URL</MudTh>
+            <MudTh>API key</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Kind">@ProviderDisplay.KindName(context.Kind)</MudTd>
+            <MudTd DataLabel="Base URL"><code>@context.BaseUrl</code></MudTd>
+            <MudTd DataLabel="API key">
+                <KeyStatusChip Status="context.Key" Auth="context.Auth" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private IReadOnlyList<ProviderSummary>? _providers;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() =>
+        _providers = await UseCases.QueryAsync<ListProviders, IReadOnlyList<ProviderSummary>>(new ListProviders());
+
+    private async Task RegisterAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<RegisterProviderDialog>("Register provider");
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            Snackbar.Add("Provider registered.", Severity.Success);
+            await LoadAsync();
+        }
+    }
+}
