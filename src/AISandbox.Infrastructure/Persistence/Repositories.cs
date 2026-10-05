@@ -29,7 +29,7 @@ internal sealed class ProviderQueries(AppDbContext db) : IProviderQueries
             .ToListAsync(cancellationToken);
 
         return providers
-            .Select(p => new ProviderRow(p.Id, p.Name, p.Kind, p.BaseUrl.ToString(), p.Auth.Kind, p.Secret))
+            .Select(p => new ProviderRow(p.Id, p.Name, p.Kind, p.BaseUrl.ToString(), p.Auth.Kind, p.Secret, p.PathVariables))
             .ToList();
     }
 }

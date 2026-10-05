@@ -10,7 +10,8 @@ public sealed record RegisterProvider(
     string? BaseUrl,
     AuthSchemeKind AuthKind,
     string? AuthHeaderName,
-    string? ApiKey);
+    string? ApiKey,
+    IReadOnlyDictionary<string, string>? PathVariables = null);
 
 public sealed class RegisterProviderHandler(
     IProviderRepository providers,
@@ -33,6 +34,7 @@ public sealed class RegisterProviderHandler(
             command.BaseUrl,
             auth.Value,
             ProviderDefaults.EnvironmentVariableFor(command.Kind),
+            command.PathVariables,
             time.GetUtcNow());
         if (provider.IsFailure)
         {

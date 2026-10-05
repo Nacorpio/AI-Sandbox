@@ -122,7 +122,7 @@ public sealed class StartRunHandler(
         }
 
         var outcome = await invoker.InvokeAsync(
-            new InvocationRequest(provider.BaseUrl, provider.Auth, apiKey, model.RemoteId, run.Input),
+            new InvocationRequest(provider.BaseUrl, provider.Auth, apiKey, model.RemoteId, run.Input, provider.PathVariables),
             cancellationToken);
 
         switch (outcome)

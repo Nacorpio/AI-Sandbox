@@ -18,6 +18,13 @@
             <MudTextField @bind-Value="_baseUrl" Label="Base URL" Variant="Variant.Outlined" Required="true"
                           Error="@HasError("baseUrl")" ErrorText="@ErrorFor("baseUrl")" InputType="InputType.Url" />
 
+            @if (_kind == ProviderKind.CloudflareWorkersAi)
+            {
+                <MudTextField @bind-Value="_accountId" Label="Account id" Variant="Variant.Outlined" Required="true"
+                              Error="@HasError("pathVariables")" ErrorText="@ErrorFor("pathVariables")"
+                              HelperText="Your Cloudflare account id, used in the request URL." />
+            }
+
             <MudTextField @bind-Value="_apiKey" Label="API key" Variant="Variant.Outlined" InputType="InputType.Password"
                           Disabled="@(_auth == AuthSchemeKind.None)"
                           HelperText="@KeyHelp" autocomplete="off" />
@@ -61,6 +68,7 @@
     private string? _apiKey;
     private AuthSchemeKind _auth = AuthSchemeKind.Bearer;
     private string? _headerName;
+    private string? _accountId;
     private AISandbox.Domain.Abstractions.Error? _error;
     private bool _saving;
 
@@ -88,7 +96,7 @@
     {
         _saving = true;
         var result = await UseCases.SendAsync<RegisterProvider, ProviderId>(
-            new RegisterProvider(_name, _kind, _baseUrl, _auth, _headerName, _apiKey));
+            new RegisterProvider(_name, _kind, _baseUrl, _auth, _headerName, _apiKey, PathVariables()));
         _saving = false;
 
         if (result.IsSuccess)
@@ -101,7 +109,12 @@
         _error = result.Error;
     }
 
-    private static bool IsFieldError(string code) => code is "validation.name" or "validation.baseUrl" or "validation.auth";
+    private IReadOnlyDictionary<string, string>? PathVariables() =>
+        _kind == ProviderKind.CloudflareWorkersAi && !string.IsNullOrWhiteSpace(_accountId)
+            ? new Dictionary<string, string> { [Provider.AccountIdVariable] = _accountId }
+            : null;
+
+    private static bool IsFieldError(string code) => code is "validation.name" or "validation.baseUrl" or "validation.auth" or "validation.pathVariables";
 
     private bool HasError(string field) => _error?.Code == $"validation.{field}";
 

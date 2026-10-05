@@ -11,7 +11,8 @@ public sealed record ProviderSummary(
     ProviderKind Kind,
     string BaseUrl,
     AuthSchemeKind Auth,
-    SecretStatus Key);
+    SecretStatus Key,
+    IReadOnlyDictionary<string, string> PathVariables);
 
 public sealed record ProviderRow(
     ProviderId Id,
@@ -19,7 +20,8 @@ public sealed record ProviderRow(
     ProviderKind Kind,
     string BaseUrl,
     AuthSchemeKind Auth,
-    SecretReference Secret);
+    SecretReference Secret,
+    IReadOnlyDictionary<string, string> PathVariables);
 
 /// <summary>
 /// Read-side projection of providers. Implemented in Infrastructure without loading aggregates.
@@ -39,7 +41,7 @@ public sealed class ListProvidersHandler(IProviderQueries queries, ISecretStore 
         foreach (var row in rows)
         {
             var key = await secrets.DescribeAsync(row.Secret, cancellationToken);
-            summaries.Add(new ProviderSummary(row.Id, row.Name, row.Kind, row.BaseUrl, row.Auth, key));
+            summaries.Add(new ProviderSummary(row.Id, row.Name, row.Kind, row.BaseUrl, row.Auth, key, row.PathVariables));
         }
 
         return summaries;
