@@ -1,0 +1,19 @@
+{
+  "templateId": "typesafe.jev",
+  "version": 1,
+  "displayName": "Jev",
+  "description": "TypeSafe's flagship System One decision model. Calibrated choice, score and noul answers with confidence. Text input only.",
+  "kind": "Decision",
+  "docsUrl": "https://docs.typesafe.ai/introduction",
+  "inputSchema": "schemas/systemone.request.json",
+  "outputSchema": "schemas/systemone.response.json",
+  "routes": [
+    {
+      "providerKind": "TypeSafe",
+      "protocol": "systemone",
+      "remoteId": "jev-latest",
+      "capabilities": { "acceptsImages": false, "maxQuestions": 64, "contextTokens": 64000, "questionTypes": [ "choice", "score", "noul" ] },
+      "pricing": { "currency": "USD", "inputPerMillion": 0.042, "outputPerMillion": 0 }
+    }
+  ]
+}

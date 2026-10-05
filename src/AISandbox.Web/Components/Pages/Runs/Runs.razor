@@ -1,0 +1,50 @@
+@page "/runs"
+@using AISandbox.Application.Features.Runs
+@inject UseCases UseCases
+
+<PageTitle>Runs · AI Sandbox</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Runs</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow" Href="runs/new">New run</MudButton>
+</MudStack>
+
+@if (_runs is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_runs.Count == 0)
+{
+    <MudPaper Outlined="true" Class="pa-8 d-flex flex-column align-center">
+        <MudIcon Icon="@Icons.Material.Outlined.PlayCircle" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Class="mt-3">No runs yet.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="_runs" Hover="true" Outlined="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+              OnRowClick="@((TableRowClickEventArgs<RunSummary> e) => Navigation.NavigateTo($"runs/{e.Item!.Id}"))" RowClass="cursor-pointer">
+        <HeaderContent>
+            <MudTh>When</MudTh>
+            <MudTh>State</MudTh>
+            <MudTh>Models</MudTh>
+            <MudTh>Cost</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="When">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+            <MudTd DataLabel="State">@context.StatePreview</MudTd>
+            <MudTd DataLabel="Models">@string.Join(", ", context.Models)</MudTd>
+            <MudTd DataLabel="Cost">@(context.TotalCost is { } cost ? Format.Cost(cost) : "–")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private IReadOnlyList<RunSummary>? _runs;
+
+    protected override async Task OnInitializedAsync() =>
+        _runs = await UseCases.QueryAsync<ListRuns, IReadOnlyList<RunSummary>>(new ListRuns());
+}

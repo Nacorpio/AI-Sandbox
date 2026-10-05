@@ -1,0 +1,70 @@
+@page "/models"
+@using AISandbox.Application.Features.Models
+@using AISandbox.Domain.Catalog.Models
+@inject UseCases UseCases
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Models · AI Sandbox</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Models</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="CreateAsync">
+        New from template
+    </MudButton>
+</MudStack>
+
+@if (_models is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_models.Count == 0)
+{
+    <MudPaper Outlined="true" Class="pa-8 d-flex flex-column align-center">
+        <MudIcon Icon="@Icons.Material.Outlined.Memory" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Class="mt-3">No models yet.</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Create one from a template, such as Jev.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="_models" Hover="true" Outlined="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Kind</MudTh>
+            <MudTh>Provider</MudTh>
+            <MudTh>Remote id</MudTh>
+            <MudTh>Price / M tokens</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.DisplayName</MudTd>
+            <MudTd DataLabel="Kind">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                         Color="@(context.Kind == ModelKind.Decision ? Color.Primary : Color.Secondary)">@context.Kind</MudChip>
+            </MudTd>
+            <MudTd DataLabel="Provider">@context.ProviderName</MudTd>
+            <MudTd DataLabel="Remote id"><code>@context.RemoteId</code></MudTd>
+            <MudTd DataLabel="Price / M tokens"><PriceLabel Pricing="context.Pricing" /></MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private IReadOnlyList<ModelSummary>? _models;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() =>
+        _models = await UseCases.QueryAsync<ListModels, IReadOnlyList<ModelSummary>>(new ListModels());
+
+    private async Task CreateAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<CreateModelDialog>("New model from template", new DialogOptions { MaxWidth = MaxWidth.Medium });
+        if (await dialog.Result is { Canceled: false })
+        {
+            Snackbar.Add("Model created.", Severity.Success);
+            await LoadAsync();
+        }
+    }
+}

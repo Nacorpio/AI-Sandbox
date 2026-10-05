@@ -1,0 +1,23 @@
+@using AISandbox.Domain.Experimentation
+
+<MudChip T="string" Size="Size.Small" Color="@Color" Icon="@Icon">@Status</MudChip>
+
+@code {
+    [Parameter, EditorRequired] public ExecutionStatus Status { get; set; }
+
+    private Color Color => Status switch
+    {
+        ExecutionStatus.Succeeded => Color.Success,
+        ExecutionStatus.Failed => Color.Error,
+        ExecutionStatus.Running => Color.Info,
+        _ => Color.Default,
+    };
+
+    private string Icon => Status switch
+    {
+        ExecutionStatus.Succeeded => Icons.Material.Outlined.CheckCircle,
+        ExecutionStatus.Failed => Icons.Material.Outlined.ErrorOutline,
+        ExecutionStatus.Running => Icons.Material.Outlined.HourglassTop,
+        _ => Icons.Material.Outlined.Schedule,
+    };
+}

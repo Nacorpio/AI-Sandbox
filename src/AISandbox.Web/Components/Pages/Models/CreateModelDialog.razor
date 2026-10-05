@@ -1,0 +1,133 @@
+@using AISandbox.Application.Features.Models
+@using AISandbox.Application.Features.Providers
+@using AISandbox.Domain.Catalog.Models
+@using AISandbox.Domain.Catalog.Providers
+@using AISandbox.Web.Components.Pages.Providers
+@inject UseCases UseCases
+
+<MudDialog>
+    <DialogContent>
+        @if (_templates is null || _providers is null)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_selected is null)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">Pick a template.</MudText>
+            <MudGrid Spacing="2">
+                @foreach (var template in _templates)
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudCard Outlined="true" Class="h-100 template-card" @onclick="() => Select(template)">
+                            <MudCardContent>
+                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.h6">@template.DisplayName</MudText>
+                                    <MudSpacer />
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@template.Kind</MudChip>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Class="mt-1">@template.Description</MudText>
+                                <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" Class="mt-2">
+                                    @foreach (var route in template.Routes)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Hub">
+                                            @ProviderDisplay.KindName(route.ProviderKind) · <PriceLabel Pricing="route.Pricing" />
+                                        </MudChip>
+                                    }
+                                </MudStack>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" OnClick="() => _selected = null" aria-label="Back to templates" />
+                    <MudText Typo="Typo.h6">@_selected.DisplayName</MudText>
+                    <MudSpacer />
+                    <MudLink Href="@_selected.DocsUrl" Target="_blank" Typo="Typo.body2">Docs</MudLink>
+                </MudStack>
+
+                @if (Eligible.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        Register a provider of kind @string.Join(" or ", _selected.Routes.Select(r => ProviderDisplay.KindName(r.ProviderKind))) first.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudSelect T="ProviderId?" @bind-Value="_providerId" Label="Provider" Variant="Variant.Outlined">
+                        @foreach (var provider in Eligible)
+                        {
+                            <MudSelectItem T="ProviderId?" Value="provider.Id">@provider.Name (@ProviderDisplay.KindName(provider.Kind))</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField @bind-Value="_displayName" Label="Display name" Variant="Variant.Outlined"
+                                  Placeholder="@DefaultName" HelperText="Leave empty to use the default." />
+                }
+
+                @if (_error is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
+        @if (_selected is not null)
+        {
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateAsync" Disabled="@(_providerId is null || _saving)">Create</MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private IReadOnlyList<TemplateSummary>? _templates;
+    private IReadOnlyList<ProviderSummary>? _providers;
+    private TemplateSummary? _selected;
+    private ProviderId? _providerId;
+    private string? _displayName;
+    private string? _error;
+    private bool _saving;
+
+    private IReadOnlyList<ProviderSummary> Eligible =>
+        _providers!.Where(p => _selected!.Routes.Any(r => r.ProviderKind == p.Kind)).ToList();
+
+    private string DefaultName =>
+        $"{_selected!.DisplayName} ({Eligible.FirstOrDefault(p => p.Id == _providerId)?.Name ?? "provider"})";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _templates = await UseCases.QueryAsync<ListTemplates, IReadOnlyList<TemplateSummary>>(new ListTemplates());
+        _providers = await UseCases.QueryAsync<ListProviders, IReadOnlyList<ProviderSummary>>(new ListProviders());
+    }
+
+    private void Select(TemplateSummary template)
+    {
+        _selected = template;
+        _error = null;
+        _providerId = Eligible.FirstOrDefault()?.Id;
+    }
+
+    private async Task CreateAsync()
+    {
+        _saving = true;
+        var result = await UseCases.SendAsync<CreateModelFromTemplate, ModelDefinitionId>(
+            new CreateModelFromTemplate(_selected!.TemplateId, _providerId!.Value, _displayName));
+        _saving = false;
+
+        if (result.IsSuccess)
+        {
+            MudDialog.Close(DialogResult.Ok(result.Value));
+        }
+        else
+        {
+            _error = result.Error!.Message;
+        }
+    }
+}

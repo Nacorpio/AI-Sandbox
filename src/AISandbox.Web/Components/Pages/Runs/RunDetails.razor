@@ -1,0 +1,129 @@
+@page "/runs/{Id:guid}"
+@using System.Text.Json
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Experimentation
+@inject UseCases UseCases
+
+<PageTitle>Run · AI Sandbox</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_run is null)
+{
+    <MudAlert Severity="Severity.Warning">Run not found.</MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudText Typo="Typo.h4">Run</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PlayArrow" Href="runs/new">New run</MudButton>
+    </MudStack>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">@_run.CreatedAt.ToLocalTime().ToString("f")</MudText>
+
+    <MudPaper Outlined="true" Class="pa-4 mb-4">
+        <MudText Typo="Typo.overline">State</MudText>
+        <MudText Typo="Typo.body1" Style="white-space: pre-wrap">@_run.State</MudText>
+    </MudPaper>
+
+    @foreach (var execution in _run.Executions)
+    {
+        <MudPaper Outlined="true" Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                <MudText Typo="Typo.h6">@execution.ModelName</MudText>
+                <StatusChip Status="execution.Status" />
+                <MudSpacer />
+                @if (execution.Latency is { } latency)
+                {
+                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Timer" Variant="Variant.Outlined">@Format.Duration(latency.Total)</MudChip>
+                }
+                @if (execution.Usage is { } usage)
+                {
+                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.DataUsage" Variant="Variant.Outlined">@Format.Tokens(usage)</MudChip>
+                }
+                @if (execution.Cost is { } cost)
+                {
+                    <MudTooltip Text="@(execution.CostSource == CostSource.ProviderReported ? "Charged, as reported by the provider" : "Calculated from token usage and the model's price")">
+                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Payments" Variant="Variant.Outlined">@Format.Cost(cost)</MudChip>
+                    </MudTooltip>
+                }
+                @if (execution.ResolvedModel is { } resolved)
+                {
+                    <MudTooltip Text="Model version that answered">
+                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Sell" Variant="Variant.Outlined">@resolved</MudChip>
+                    </MudTooltip>
+                }
+            </MudStack>
+
+            <MudTabs Elevation="0" Class="mt-2" TabPanelsClass="pt-4">
+                <MudTabPanel Text="Answers">
+                    @if (execution.Error is { } error)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">
+                            <strong>@error.Code</strong> · @error.Message
+                        </MudAlert>
+                    }
+                    else if (execution.Output is DecisionOutput decision)
+                    {
+                        <MudGrid Spacing="3">
+                            @foreach (var question in _run.Questions)
+                            {
+                                <MudItem xs="12" md="6">
+                                    <AnswerCard Question="question" Answer="@decision.Answers.GetValueOrDefault(question.Key)" />
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudTabPanel>
+                <MudTabPanel Text="Raw">
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.overline">Request</MudText>
+                            <pre class="raw-json">@Pretty(execution.RawRequest)</pre>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.overline">Response</MudText>
+                            <pre class="raw-json">@Pretty(execution.RawResponse)</pre>
+                        </MudItem>
+                    </MudGrid>
+                </MudTabPanel>
+            </MudTabs>
+        </MudPaper>
+    }
+}
+
+@code {
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    [Parameter] public Guid Id { get; set; }
+
+    private RunView? _run;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _run = await UseCases.QueryAsync<GetRun, RunView?>(new GetRun(new RunId(Id)));
+        _loading = false;
+    }
+
+    private static string Pretty(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return "–";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(document.RootElement, Indented);
+        }
+        catch (JsonException)
+        {
+            return json;
+        }
+    }
+}

@@ -1,0 +1,78 @@
+@using AISandbox.Domain.Authoring.Questions
+
+<MudPaper Outlined="true" Class="pa-4">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudToggleGroup T="QuestionType" @bind-Value="Draft.Type" Color="Color.Primary" Size="Size.Small" CheckMark="false" Outlined="true">
+                <MudToggleItem Value="QuestionType.Choice" Text="Choice" />
+                <MudToggleItem Value="QuestionType.Score" Text="Score" />
+                <MudToggleItem Value="QuestionType.Noul" Text="Yes / no" />
+            </MudToggleGroup>
+            <MudSpacer />
+            <MudTextField @bind-Value="Draft.Key" Label="Key" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Style="max-width: 16rem" HelperText="Letters, digits, _ . -" />
+            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="OnRemove" aria-label="Remove question" />
+        </MudStack>
+
+        <MudTextField @bind-Value="Draft.Instructions" Label="@InstructionLabel" Variant="Variant.Outlined"
+                      Sizing="InputSizing.Auto" Lines="1" MaxLines="6" OnBlur="_ => Draft.SuggestKey()"
+                      HelperText="Plain text, or JSON starting with { for structured instructions." />
+
+        @switch (Draft.Type)
+        {
+            case QuestionType.Choice:
+                <MudText Typo="Typo.subtitle2">Options</MudText>
+                @foreach (var option in Draft.Options)
+                {
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudTextField @bind-Value="option.Name" Placeholder="Name" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 12rem" />
+                        <MudTextField @bind-Value="option.Description" Placeholder="Description (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Disabled="@(Draft.Options.Count <= ChoiceQuestion.MinOptions)"
+                                       OnClick="() => Draft.Options.Remove(option)" aria-label="Remove option" />
+                    </MudStack>
+                }
+                <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Draft.Options.Add(new())" Class="align-self-start">Add option</MudButton>
+                break;
+
+            case QuestionType.Score:
+                <MudText Typo="Typo.subtitle2">Levels, lowest first</MudText>
+                @for (var i = 0; i < Draft.Levels.Count; i++)
+                {
+                    var level = Draft.Levels[i];
+                    var index = i;
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary" Style="width: 1.5rem">@index</MudText>
+                        <MudTextField @bind-Value="level.Text" Placeholder="Describe this level" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" Disabled="@(Draft.Levels.Count <= ScoreQuestion.MinLevels)"
+                                       OnClick="() => Draft.Levels.Remove(level)" aria-label="Remove level" />
+                    </MudStack>
+                }
+                <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Draft.Levels.Add(new())" Class="align-self-start">Add level</MudButton>
+                break;
+
+            default:
+                <MudExpansionPanels Elevation="0" Outlined="true" Dense="true">
+                    <MudExpansionPanel Text="Describe true and false (optional)">
+                        <MudStack Spacing="2">
+                            <MudTextField @bind-Value="Draft.WhenTrue" Label="True when" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField @bind-Value="Draft.WhenFalse" Label="False when" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudStack>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+                break;
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public QuestionDraft Draft { get; set; } = default!;
+
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    private string InstructionLabel => Draft.Type switch
+    {
+        QuestionType.Choice => "Question",
+        QuestionType.Score => "What to score",
+        _ => "Statement to check",
+    };
+}

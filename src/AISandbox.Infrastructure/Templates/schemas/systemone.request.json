@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "System One request",
+  "type": "object",
+  "required": [ "model", "state", "questions" ],
+  "properties": {
+    "model": { "type": "string", "title": "Model" },
+    "state": { "title": "State", "description": "Text, or any JSON object or array, to evaluate.", "type": [ "string", "object", "array" ] },
+    "questions": {
+      "type": "object",
+      "title": "Questions",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": { "pattern": "^[A-Za-z0-9_.-]{1,100}$" },
+      "additionalProperties": { "$ref": "#/$defs/question" }
+    }
+  },
+  "$defs": {
+    "entry": { "type": [ "string", "object", "array", "null" ] },
+    "question": {
+      "type": "object",
+      "required": [ "type", "instructions" ],
+      "properties": {
+        "type": { "enum": [ "choice", "score", "noul" ] },
+        "instructions": { "$ref": "#/$defs/entry" },
+        "criteria": {}
+      }
+    }
+  }
+}
