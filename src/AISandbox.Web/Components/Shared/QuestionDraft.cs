@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Authoring.Questions;
 
-namespace AISandbox.Web.Components.Pages.Runs;
+namespace AISandbox.Web.Components.Shared;
 
 /// <summary>
 /// Mutable editing state for one question in the run dialog.
@@ -35,6 +35,24 @@ public sealed partial class QuestionDraft
 
         var words = NonWord().Split(Instructions.ToLowerInvariant()).Where(w => w.Length > 0).Take(4);
         Key = string.Join('_', words) is { Length: > 0 } key ? key[..Math.Min(key.Length, 60)] : null;
+    }
+
+    public static QuestionDraft FromInput(QuestionInput input)
+    {
+        var draft = new QuestionDraft { Type = input.Type, Key = input.Key, Instructions = input.Instructions, WhenTrue = input.WhenTrue, WhenFalse = input.WhenFalse };
+        if (input.Options is { Count: > 0 })
+        {
+            draft.Options.Clear();
+            draft.Options.AddRange(input.Options.Select(o => new OptionDraft { Name = o.Name, Description = o.Description }));
+        }
+
+        if (input.Levels is { Count: > 0 })
+        {
+            draft.Levels.Clear();
+            draft.Levels.AddRange(input.Levels.Select(l => new TextDraft { Text = l }));
+        }
+
+        return draft;
     }
 
     public QuestionInput ToInput() => new(

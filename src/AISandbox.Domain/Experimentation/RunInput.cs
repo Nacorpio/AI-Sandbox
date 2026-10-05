@@ -1,4 +1,5 @@
 using AISandbox.Domain.Abstractions;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Authoring.Questions;
 
 namespace AISandbox.Domain.Experimentation;
@@ -8,31 +9,24 @@ namespace AISandbox.Domain.Experimentation;
 /// </summary>
 public sealed record RunInput
 {
-    public const int MaxQuestions = 64;
+    public const int MaxQuestions = QuestionRules.MaxQuestions;
 
-    private RunInput(StructuredText state, IReadOnlyList<Question> questions)
+    private RunInput(StructuredText state, IReadOnlyList<Question> questions, QuestionSetRef? questionSet)
     {
         State = state;
         Questions = questions;
+        QuestionSet = questionSet;
     }
 
     public StructuredText State { get; }
 
     public IReadOnlyList<Question> Questions { get; }
 
-    public static Result<RunInput> Create(StructuredText state, IReadOnlyList<Question> questions)
-    {
-        if (questions.Count is 0 or > MaxQuestions)
-        {
-            return Error.Validation("questions", $"A run needs between 1 and {MaxQuestions} questions.");
-        }
+    /// <summary>
+    /// The saved question set (and version) the questions came from, when they came from one.
+    /// </summary>
+    public QuestionSetRef? QuestionSet { get; }
 
-        var duplicate = questions.GroupBy(q => q.Key.Value).FirstOrDefault(g => g.Count() > 1);
-        if (duplicate is not null)
-        {
-            return Error.Validation("questions", $"Question key '{duplicate.Key}' is used more than once.");
-        }
-
-        return new RunInput(state, questions);
-    }
+    public static Result<RunInput> Create(StructuredText state, IReadOnlyList<Question> questions, QuestionSetRef? questionSet = null) =>
+        QuestionRules.Check(questions) is { } error ? error : new RunInput(state, questions, questionSet);
 }

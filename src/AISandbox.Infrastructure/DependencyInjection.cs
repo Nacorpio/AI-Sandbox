@@ -1,6 +1,7 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Features.Models;
 using AISandbox.Application.Features.Providers;
+using AISandbox.Application.Features.QuestionSets;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Infrastructure.Persistence;
@@ -38,6 +39,8 @@ public static class DependencyInjection
         services.AddSingleton<ITemplateCatalog, EmbeddedTemplateCatalog>();
         services.AddScoped<IModelDefinitionRepository, ModelDefinitionRepository>();
         services.AddScoped<IModelQueries, ModelQueries>();
+        services.AddScoped<IQuestionSetRepository, QuestionSetRepository>();
+        services.AddScoped<IQuestionSetQueries, QuestionSetQueries>();
         services.AddScoped<IRunRepository, RunRepository>();
         services.AddScoped<IRunQueries, RunQueries>();
 

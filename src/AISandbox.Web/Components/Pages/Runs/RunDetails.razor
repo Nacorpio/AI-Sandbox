@@ -21,7 +21,14 @@ else
         <MudSpacer />
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PlayArrow" Href="runs/new">New run</MudButton>
     </MudStack>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">@_run.CreatedAt.ToLocalTime().ToString("f")</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@_run.CreatedAt.ToLocalTime().ToString("f")</MudText>
+        @if (_run.QuestionSet is { } set)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Outlined.Quiz"
+                     Href="@($"question-sets/{set.Id}")">Question set v@(set.Version)</MudChip>
+        }
+    </MudStack>
 
     <MudPaper Outlined="true" Class="pa-4 mb-4">
         <MudText Typo="Typo.overline">State</MudText>

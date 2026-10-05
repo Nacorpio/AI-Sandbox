@@ -1,0 +1,50 @@
+@page "/question-sets"
+@using AISandbox.Application.Features.QuestionSets
+@inject UseCases UseCases
+@inject NavigationManager Navigation
+
+<PageTitle>Question sets · AI Sandbox</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Question sets</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="question-sets/new">New set</MudButton>
+</MudStack>
+
+@if (_sets is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_sets.Count == 0)
+{
+    <MudPaper Outlined="true" Class="pa-8 d-flex flex-column align-center">
+        <MudIcon Icon="@Icons.Material.Outlined.Quiz" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Class="mt-3">No question sets yet.</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Save the questions you reuse, then pick them when starting a run.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="_sets" Hover="true" Outlined="true" Elevation="0" Breakpoint="Breakpoint.Sm"
+              OnRowClick="@((TableRowClickEventArgs<QuestionSetSummary> e) => Navigation.NavigateTo($"question-sets/{e.Item!.Id}"))" RowClass="cursor-pointer">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Questions</MudTh>
+            <MudTh>Version</MudTh>
+            <MudTh>Updated</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Questions">@context.QuestionCount</MudTd>
+            <MudTd DataLabel="Version">v@(context.Version)</MudTd>
+            <MudTd DataLabel="Updated">@context.UpdatedAt.ToLocalTime().ToString("g")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private IReadOnlyList<QuestionSetSummary>? _sets;
+
+    protected override async Task OnInitializedAsync() =>
+        _sets = await UseCases.QueryAsync<ListQuestionSets, IReadOnlyList<QuestionSetSummary>>(new ListQuestionSets());
+}

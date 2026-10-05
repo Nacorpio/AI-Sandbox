@@ -1,6 +1,8 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Features.Models;
 using AISandbox.Application.Features.Providers;
+using AISandbox.Application.Features.QuestionSets;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Catalog.Providers;
@@ -22,6 +24,11 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListTemplates, IReadOnlyList<TemplateSummary>>, ListTemplatesHandler>();
         services.AddScoped<ICommandHandler<CreateModelFromTemplate, ModelDefinitionId>, CreateModelFromTemplateHandler>();
         services.AddScoped<IQueryHandler<ListModels, IReadOnlyList<ModelSummary>>, ListModelsHandler>();
+
+        services.AddScoped<ICommandHandler<CreateQuestionSet, QuestionSetId>, CreateQuestionSetHandler>();
+        services.AddScoped<ICommandHandler<UpdateQuestionSet, QuestionSetRef>, UpdateQuestionSetHandler>();
+        services.AddScoped<IQueryHandler<ListQuestionSets, IReadOnlyList<QuestionSetSummary>>, ListQuestionSetsHandler>();
+        services.AddScoped<IQueryHandler<GetQuestionSet, QuestionSetView?>, GetQuestionSetHandler>();
 
         services.AddScoped<ICommandHandler<StartRun, RunId>, StartRunHandler>();
         services.AddScoped<IQueryHandler<GetRun, RunView?>, GetRunHandler>();

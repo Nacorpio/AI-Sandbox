@@ -1,0 +1,144 @@
+@page "/question-sets/new"
+@page "/question-sets/{Id:guid}"
+@using AISandbox.Application.Features.QuestionSets
+@using AISandbox.Domain.Authoring.QuestionSets
+@inject UseCases UseCases
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>@(IsNew ? "New question set" : _name) · AI Sandbox</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (!IsNew && _version is null)
+{
+    <MudAlert Severity="Severity.Warning">Question set not found. <MudLink Href="question-sets">Back to question sets</MudLink></MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h4">@(IsNew ? "New question set" : "Edit question set")</MudText>
+        @if (_version is { } version)
+        {
+            <MudTooltip Text="Saving creates the next version. Earlier runs keep the version they used.">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">v@(version)</MudChip>
+            </MudTooltip>
+        }
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" Href="question-sets">Back</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving" OnClick="SaveAsync">@(_saving ? "Saving…" : "Save")</MudButton>
+    </MudStack>
+
+    <MudStack Spacing="3">
+        <MudTextField @bind-Value="_name" Label="Name" Variant="Variant.Outlined" MaxLength="QuestionSet.MaxNameLength" />
+
+        @foreach (var question in _questions)
+        {
+            var index = _questions.IndexOf(question);
+            <QuestionEditor Draft="question" OnRemove="() => _questions.Remove(question)"
+                            OnMoveUp="() => Move(index, -1)" OnMoveDown="() => Move(index, 1)"
+                            CanMoveUp="@(index > 0)" CanMoveDown="@(index < _questions.Count - 1)" />
+        }
+
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _questions.Add(new())" Class="align-self-start"
+                   Disabled="@(_questions.Count >= QuestionRules.MaxQuestions)">Add question</MudButton>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+    </MudStack>
+}
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsNew => Id is null;
+
+    private bool _loading = true;
+    private bool _saving;
+    private string? _name;
+    private int? _version;
+    private string? _error;
+    private readonly List<QuestionDraft> _questions = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _error = null;
+        _questions.Clear();
+        _version = null;
+        if (Id is { } id)
+        {
+            var set = await UseCases.QueryAsync<GetQuestionSet, QuestionSetView?>(new GetQuestionSet(new QuestionSetId(id)));
+            if (set is not null)
+            {
+                Apply(set);
+            }
+        }
+        else
+        {
+            _name = null;
+            _questions.Add(new());
+        }
+
+        _loading = false;
+    }
+
+    private void Apply(QuestionSetView set)
+    {
+        _name = set.Name;
+        _version = set.Version;
+        _questions.Clear();
+        _questions.AddRange(set.Questions.Select(QuestionDraft.FromInput));
+    }
+
+    private void Move(int index, int offset)
+    {
+        var target = index + offset;
+        if (target < 0 || target >= _questions.Count)
+        {
+            return;
+        }
+
+        (_questions[index], _questions[target]) = (_questions[target], _questions[index]);
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        var inputs = _questions.Select(q => q.ToInput()).ToList();
+
+        if (Id is { } id)
+        {
+            var result = await UseCases.SendAsync<UpdateQuestionSet, QuestionSetRef>(new UpdateQuestionSet(new QuestionSetId(id), _name, inputs));
+            if (result.IsSuccess)
+            {
+                _version = result.Value.Version;
+                Snackbar.Add($"Saved as version {result.Value.Version}.", Severity.Success);
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+        else
+        {
+            var result = await UseCases.SendAsync<CreateQuestionSet, QuestionSetId>(new CreateQuestionSet(_name, inputs));
+            if (result.IsSuccess)
+            {
+                Snackbar.Add("Question set created.", Severity.Success);
+                Navigation.NavigateTo($"question-sets/{result.Value}");
+            }
+            else
+            {
+                _error = result.Error!.Message;
+            }
+        }
+
+        _saving = false;
+    }
+}
