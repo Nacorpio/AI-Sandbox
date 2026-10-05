@@ -1,0 +1,54 @@
+@using Markdig
+@using Markdig.Syntax
+@using Markdig.Syntax.Inlines
+
+<div class="markdown-body">@((MarkupString)_html)</div>
+
+@code {
+    // Raw HTML in the source is escaped, never rendered; links are limited to safe schemes.
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UseAdvancedExtensions()
+        .DisableHtml()
+        .Build();
+
+    private static readonly string[] SafeSchemes = ["http", "https", "mailto"];
+
+    private string _html = string.Empty;
+    private string? _rendered;
+
+    [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (_rendered == Text)
+        {
+            return;
+        }
+
+        _rendered = Text;
+        _html = Render(Text);
+    }
+
+    internal static string Render(string markdown)
+    {
+        var document = Markdown.Parse(markdown, Pipeline);
+        foreach (var link in document.Descendants<LinkInline>())
+        {
+            if (!IsSafe(link.Url))
+            {
+                link.Url = "#";
+            }
+        }
+
+        using var writer = new StringWriter();
+        var renderer = new Markdig.Renderers.HtmlRenderer(writer);
+        Pipeline.Setup(renderer);
+        renderer.Render(document);
+        return writer.ToString();
+    }
+
+    private static bool IsSafe(string? url) =>
+        string.IsNullOrEmpty(url)
+        || url.StartsWith('#') || url.StartsWith('/')
+        || (Uri.TryCreate(url, UriKind.Absolute, out var uri) && SafeSchemes.Contains(uri.Scheme));
+}

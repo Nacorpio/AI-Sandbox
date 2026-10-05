@@ -17,7 +17,7 @@
     else
     {
         <MudTabs Elevation="0" Class="mt-2" TabPanelsClass="pt-4">
-            <MudTabPanel Text="Answers">
+            <MudTabPanel Text="@(Execution.Output is ChatOutput ? "Reply" : "Answers")">
                 @if (Execution.Error is { } error)
                 {
                     <MudAlert Severity="@(error.Code == ExecutionError.CancelledCode ? Severity.Normal : error.Code == ExecutionError.RateLimitedCode ? Severity.Warning : Severity.Error)" Dense="true">
@@ -27,6 +27,10 @@
                             <MudText Typo="Typo.caption">The provider rate-limited this request.</MudText>
                         }
                     </MudAlert>
+                }
+                else if (Execution.Output is ChatOutput chat)
+                {
+                    <ChatResult Output="chat" />
                 }
                 else if (Execution.Output is DecisionOutput decision)
                 {

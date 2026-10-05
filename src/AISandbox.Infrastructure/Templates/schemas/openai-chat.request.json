@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenAI-compatible chat completion request",
+  "type": "object",
+  "required": [ "model", "messages" ],
+  "properties": {
+    "model": { "type": "string", "title": "Model" },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [ "role", "content" ],
+        "properties": {
+          "role": { "enum": [ "system", "user", "assistant" ] },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "temperature": { "type": "number" },
+    "max_tokens": { "type": "integer" },
+    "reasoning_effort": { "type": "string" },
+    "response_format": { "type": "object" },
+    "provider": { "type": "object", "description": "OpenRouter routing preferences." }
+  }
+}

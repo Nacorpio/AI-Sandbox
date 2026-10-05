@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AISandbox.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AISandbox.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005102454_AddPromptTemplates")]
+    partial class AddPromptTemplates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
@@ -168,10 +171,6 @@ namespace AISandbox.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT")
                         .HasDefaultValueSql("'{}'");
-
-                    b.Property<string>("RateLimit")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Secret", "AISandbox.Domain.Catalog.Providers.Provider.Secret#SecretReference", b1 =>
                         {

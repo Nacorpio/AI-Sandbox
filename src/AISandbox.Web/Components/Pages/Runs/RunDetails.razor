@@ -43,10 +43,32 @@ else
         }
     </MudStack>
 
-    <MudPaper Outlined="true" Class="pa-4 mb-4">
-        <MudText Typo="Typo.overline">State</MudText>
-        <MudText Typo="Typo.body1" Style="white-space: pre-wrap">@_run.State</MudText>
-    </MudPaper>
+    @if (_run.State.Length > 0)
+    {
+        <MudPaper Outlined="true" Class="pa-4 mb-4">
+            <MudText Typo="Typo.overline">State</MudText>
+            <MudText Typo="Typo.body1" Style="white-space: pre-wrap">@_run.State</MudText>
+        </MudPaper>
+    }
+
+    @if (_run.Prompt is { } prompt)
+    {
+        <MudPaper Outlined="true" Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.overline">Prompt</MudText>
+                @if (prompt.TemplateName is { } templateName)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Outlined.Article">@templateName</MudChip>
+                }
+            </MudStack>
+            @if (prompt.System is { } system)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">System</MudText>
+                <MudText Typo="Typo.body2" Style="white-space: pre-wrap" Class="mb-2">@system</MudText>
+            }
+            <MudText Typo="Typo.body1" Style="white-space: pre-wrap">@prompt.User</MudText>
+        </MudPaper>
+    }
 
     @if (_matrix is { } matrix)
     {

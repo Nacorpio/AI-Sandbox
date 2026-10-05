@@ -1,0 +1,19 @@
+{
+  "templateId": "deepseek.v4-1-flash",
+  "version": 1,
+  "displayName": "DeepSeek V4.1 Flash",
+  "description": "DeepSeek's fast chat model with reasoning and structured outputs, served through OpenRouter. Price varies by upstream provider; the listed price is DeepSeek's own.",
+  "kind": "Chat",
+  "docsUrl": "https://openrouter.ai/deepseek/deepseek-v4.1-flash",
+  "inputSchema": "schemas/openai-chat.request.json",
+  "outputSchema": "schemas/openai-chat.response.json",
+  "routes": [
+    {
+      "providerKind": "OpenRouter",
+      "protocol": "openai-chat",
+      "remoteId": "deepseek/deepseek-v4.1-flash",
+      "capabilities": { "acceptsImages": false, "maxQuestions": 0, "contextTokens": 1048576, "supportsStructuredOutputs": true },
+      "pricing": { "currency": "USD", "inputPerMillion": 0.15, "outputPerMillion": 0.60 }
+    }
+  ]
+}

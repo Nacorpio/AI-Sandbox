@@ -14,7 +14,9 @@ public sealed record InvocationRequest(
     string? ApiKey,
     RemoteModelId RemoteId,
     RunInput Input,
-    IReadOnlyDictionary<string, string>? PathVariables = null);
+    IReadOnlyDictionary<string, string>? PathVariables = null,
+    ChatOptions? ChatOptions = null,
+    ModelCapabilities? Capabilities = null);
 
 public abstract record InvocationOutcome;
 

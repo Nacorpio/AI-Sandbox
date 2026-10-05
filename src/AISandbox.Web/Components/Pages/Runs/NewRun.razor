@@ -1,7 +1,9 @@
 @page "/runs/new"
 @using AISandbox.Application.Features.Models
+@using AISandbox.Application.Features.Prompts
 @using AISandbox.Application.Features.QuestionSets
 @using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Authoring.Prompts
 @using AISandbox.Domain.Authoring.QuestionSets
 @using AISandbox.Domain.Catalog.Models
 @using AISandbox.Domain.Experimentation
@@ -26,37 +28,29 @@
 {
     case 0:
         <MudTextField @bind-Value="_state" Label="State" Variant="Variant.Outlined" Sizing="InputSizing.Auto" Lines="6" MaxLines="20"
-                      HelperText="The content to evaluate. Plain text, or JSON starting with { or [." />
+                      HelperText="For decision models: the content to evaluate. Plain text, or JSON starting with { or [. Chat models use the prompt instead." />
         break;
 
     case 1:
         <MudStack Spacing="3">
-            @if (_sets is { Count: > 0 })
+            @if (HasChatModels)
             {
-                <MudToggleGroup T="bool" @bind-Value="_useSet" Color="Color.Primary" Size="Size.Small" CheckMark="false" Outlined="true" Class="align-self-start">
-                    <MudToggleItem Value="true" Text="Saved set" />
-                    <MudToggleItem Value="false" Text="Quick questions" />
+                <MudToggleGroup T="bool" @bind-Value="_askPrompt" Color="Color.Primary" Size="Size.Small" CheckMark="false" Outlined="true" Class="align-self-start">
+                    <MudToggleItem Value="false" Text="Questions" />
+                    <MudToggleItem Value="true" Text="Prompt" />
                 </MudToggleGroup>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Decision models answer the questions, chat models answer the prompt. Fill in what the models you pick need.
+                </MudText>
             }
 
-            @if (_useSet && _sets is { Count: > 0 })
+            @if (_askPrompt && HasChatModels)
             {
-                <MudSelect T="QuestionSetId?" @bind-Value="_setId" Label="Question set" Variant="Variant.Outlined"
-                           HelperText="The set's current version is used and recorded on the run.">
-                    @foreach (var set in _sets)
-                    {
-                        <MudSelectItem T="QuestionSetId?" Value="set.Id">@($"{set.Name} · v{set.Version} · {set.QuestionCount} questions")</MudSelectItem>
-                    }
-                </MudSelect>
+                @PromptForm
             }
             else
             {
-                @foreach (var question in _questions)
-                {
-                    <QuestionEditor Draft="question" OnRemove="() => _questions.Remove(question)" />
-                }
-                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _questions.Add(new())" Class="align-self-start"
-                           Disabled="@(_questions.Count >= RunInput.MaxQuestions)">Add question</MudButton>
+                @QuestionsForm
             }
         </MudStack>
         break;
@@ -66,23 +60,66 @@
         {
             <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
         }
-        else if (DecisionModels.Count == 0)
+        else if (_models.Count == 0)
         {
-            <MudAlert Severity="Severity.Info">Create a decision model first, on the <MudLink Href="models">Models</MudLink> page.</MudAlert>
+            <MudAlert Severity="Severity.Info">Create a model first, on the <MudLink Href="models">Models</MudLink> page.</MudAlert>
         }
         else
         {
             <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">Pick one or more models. They answer in parallel and are compared side by side.</MudText>
             <MudStack Spacing="0">
-                @foreach (var model in DecisionModels)
+                @foreach (var model in _models)
                 {
                     var id = model.Id;
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudCheckBox T="bool" Value="@_selected.Contains(id)" ValueChanged="@(on => Toggle(id, on))" Label="@model.DisplayName" />
                         <MudSpacer />
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                 Color="@(model.Kind == ModelKind.Decision ? Color.Primary : Color.Secondary)">@model.Kind</MudChip>
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><code>@model.RemoteId</code></MudChip>
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><PriceLabel Pricing="model.Pricing" /></MudChip>
                     </MudStack>
+                    @if (model.Kind == ModelKind.Chat && _selected.Contains(id))
+                    {
+                        var draft = OptionsFor(id);
+                        <MudExpansionPanels Elevation="0" Class="mb-2 ml-8">
+                            <MudExpansionPanel Text="More options">
+                                <MudGrid Spacing="2">
+                                    <MudItem xs="12" sm="6">
+                                        <MudNumericField T="double?" @bind-Value="draft.Temperature" Label="Temperature" Variant="Variant.Outlined" Min="0" Max="2" Step="0.1" HideSpinButtons="true" Clearable="true" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudNumericField T="int?" @bind-Value="draft.MaxTokens" Label="Max tokens" Variant="Variant.Outlined" Min="1" HideSpinButtons="true" Clearable="true" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudSelect T="string" @bind-Value="draft.ReasoningEffort" Label="Reasoning effort" Variant="Variant.Outlined" Clearable="true" Placeholder="Provider default">
+                                            @foreach (var effort in ChatOptionsDraft.ReasoningEfforts)
+                                            {
+                                                <MudSelectItem T="string" Value="@effort">@effort</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudSelect T="UpstreamPreferenceKind?" @bind-Value="draft.Upstream" Label="Upstream provider" Variant="Variant.Outlined" Clearable="true" Placeholder="Provider default">
+                                            <MudSelectItem T="UpstreamPreferenceKind?" Value="UpstreamPreferenceKind.Cheapest">Cheapest</MudSelectItem>
+                                            <MudSelectItem T="UpstreamPreferenceKind?" Value="UpstreamPreferenceKind.Fastest">Fastest</MudSelectItem>
+                                            <MudSelectItem T="UpstreamPreferenceKind?" Value="UpstreamPreferenceKind.Pinned">Pinned</MudSelectItem>
+                                        </MudSelect>
+                                    </MudItem>
+                                    @if (draft.Upstream == UpstreamPreferenceKind.Pinned)
+                                    {
+                                        <MudItem xs="12" sm="6">
+                                            <MudTextField @bind-Value="draft.PinnedName" Label="Upstream name" Variant="Variant.Outlined" Placeholder="DeepSeek"
+                                                          HelperText="Only this upstream is used, with no fallback." />
+                                        </MudItem>
+                                    }
+                                    <MudItem xs="12" sm="6">
+                                        <MudSwitch T="bool" @bind-Value="draft.JsonObject" Label="JSON response format" Color="Color.Primary" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    }
                 }
             </MudStack>
         }
@@ -118,20 +155,97 @@
     private readonly List<QuestionDraft> _questions = [new()];
     private IReadOnlyList<ModelSummary>? _models;
     private IReadOnlyList<QuestionSetSummary>? _sets;
+    private IReadOnlyList<PromptTemplateView> _prompts = [];
     private bool _useSet;
     private QuestionSetId? _setId;
+    private bool _askPrompt;
+    private PromptTemplateId? _promptId;
+    private readonly Dictionary<string, string> _values = [];
+    private string? _oneOffSystem;
+    private string? _oneOffUser;
+    private readonly Dictionary<ModelDefinitionId, ChatOptionsDraft> _options = [];
     private readonly HashSet<ModelDefinitionId> _selected = [];
     private string? _error;
     private bool _running;
 
-    private IReadOnlyList<ModelSummary> DecisionModels => _models!.Where(m => m.Kind == ModelKind.Decision).ToList();
+    private bool HasChatModels => _models?.Any(m => m.Kind == ModelKind.Chat) == true;
+
+    private PromptTemplateView? Template => _promptId is { } id ? _prompts.FirstOrDefault(p => p.Id == id) : null;
+
+    private RenderFragment QuestionsForm => __builder =>
+    {
+        <MudStack Spacing="3">
+            @if (_sets is { Count: > 0 })
+            {
+                <MudToggleGroup T="bool" @bind-Value="_useSet" Color="Color.Primary" Size="Size.Small" CheckMark="false" Outlined="true" Class="align-self-start">
+                    <MudToggleItem Value="true" Text="Saved set" />
+                    <MudToggleItem Value="false" Text="Quick questions" />
+                </MudToggleGroup>
+            }
+
+            @if (_useSet && _sets is { Count: > 0 })
+            {
+                <MudSelect T="QuestionSetId?" @bind-Value="_setId" Label="Question set" Variant="Variant.Outlined"
+                           HelperText="The set's current version is used and recorded on the run.">
+                    @foreach (var set in _sets)
+                    {
+                        <MudSelectItem T="QuestionSetId?" Value="set.Id">@($"{set.Name} · v{set.Version} · {set.QuestionCount} questions")</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            else
+            {
+                @foreach (var question in _questions)
+                {
+                    <QuestionEditor Draft="question" OnRemove="() => _questions.Remove(question)" />
+                }
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _questions.Add(new())" Class="align-self-start"
+                           Disabled="@(_questions.Count >= RunInput.MaxQuestions)">Add question</MudButton>
+            }
+        </MudStack>
+    };
+
+    private RenderFragment PromptForm => __builder =>
+    {
+        <MudStack Spacing="3">
+            <MudSelect T="PromptTemplateId?" Value="_promptId" ValueChanged="SelectTemplate" Label="Prompt" Variant="Variant.Outlined" Clearable="true"
+                       Placeholder="Write a one-off prompt" HelperText="Pick a saved prompt, or leave empty to write one here.">
+                @foreach (var prompt in _prompts)
+                {
+                    <MudSelectItem T="PromptTemplateId?" Value="prompt.Id">@prompt.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            @if (Template is { } template)
+            {
+                @if (template.Placeholders.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">This prompt has no placeholders.</MudText>
+                }
+
+                @foreach (var placeholder in template.Placeholders)
+                {
+                    var name = placeholder;
+                    <MudTextField T="string" Value="@(_values.GetValueOrDefault(name))" ValueChanged="@(v => _values[name] = v)" Immediate="true"
+                                  Label="@name" Variant="Variant.Outlined" Lines="2" Sizing="InputSizing.Auto" MaxLines="12" />
+                }
+            }
+            else
+            {
+                <MudTextField @bind-Value="_oneOffSystem" Label="System prompt (optional)" Variant="Variant.Outlined" Lines="2" Sizing="InputSizing.Auto" MaxLines="10" />
+                <MudTextField @bind-Value="_oneOffUser" Label="Prompt" Variant="Variant.Outlined" Lines="5" Sizing="InputSizing.Auto" MaxLines="20" />
+            }
+        </MudStack>
+    };
 
     protected override async Task OnInitializedAsync()
     {
         _models = await UseCases.QueryAsync<ListModels, IReadOnlyList<ModelSummary>>(new ListModels());
-        if (DecisionModels.FirstOrDefault() is { } first)
+        // Prefer a decision model as the default pick.
+        if ((_models.FirstOrDefault(m => m.Kind == ModelKind.Decision) ?? _models.FirstOrDefault()) is { } first)
         {
             _selected.Add(first.Id);
+            _askPrompt = first.Kind == ModelKind.Chat;
         }
 
         _sets = await UseCases.QueryAsync<ListQuestionSets, IReadOnlyList<QuestionSetSummary>>(new ListQuestionSets());
@@ -140,6 +254,19 @@
             _useSet = true;
             _setId = _sets[0].Id;
         }
+
+        _prompts = await UseCases.QueryAsync<ListPromptTemplates, IReadOnlyList<PromptTemplateView>>(new ListPromptTemplates());
+        _promptId = _prompts.FirstOrDefault()?.Id;
+    }
+
+    private ChatOptionsDraft OptionsFor(ModelDefinitionId id)
+    {
+        if (!_options.TryGetValue(id, out var draft))
+        {
+            _options[id] = draft = new ChatOptionsDraft();
+        }
+
+        return draft;
     }
 
     private void Toggle(ModelDefinitionId id, bool selected)
@@ -154,16 +281,35 @@
         }
     }
 
+    private void SelectTemplate(PromptTemplateId? id)
+    {
+        _promptId = id;
+        _values.Clear();
+    }
+
     private async Task RunAsync()
     {
         _running = true;
         _error = null;
+        var selectedModels = _models!.Where(m => _selected.Contains(m.Id)).ToList();
+        var chatIds = selectedModels.Where(m => m.Kind == ModelKind.Chat).Select(m => m.Id).ToList();
+
+        ChatPromptInput? prompt = null;
+        if (chatIds.Count > 0)
+        {
+            prompt = Template is { } template
+                ? new ChatPromptInput(TemplateId: template.Id, Values: new Dictionary<string, string>(_values))
+                : new ChatPromptInput(System: _oneOffSystem, User: _oneOffUser);
+        }
+
         var result = await UseCases.SendAsync<StartRun, RunId>(
             new StartRun(
                 _state,
                 _useSet ? [] : _questions.Select(q => q.ToInput()).ToList(),
-                DecisionModels.Where(m => _selected.Contains(m.Id)).Select(m => m.Id).ToList(),
-                _useSet ? _setId : null));
+                selectedModels.Select(m => m.Id).ToList(),
+                _useSet ? _setId : null,
+                prompt,
+                chatIds.ToDictionary(id => id, id => OptionsFor(id).ToOptions())));
         _running = false;
 
         if (result.IsSuccess)
@@ -179,5 +325,6 @@
             "validation.models" => 2,
             _ => 1,
         };
+        _askPrompt = result.Error.Code is "validation.prompt" or "validation.placeholders";
     }
 }

@@ -22,7 +22,7 @@ internal static class SystemOneContract
             writer.WriteString("model", model);
             extraProperties?.Invoke(writer);
             writer.WritePropertyName("state");
-            writer.WriteRawValue(input.State.Json);
+            writer.WriteRawValue((input.State ?? throw new InvalidOperationException("The run has no state for a decision model.")).Json);
             writer.WriteStartObject("questions");
             foreach (var question in input.Questions)
             {

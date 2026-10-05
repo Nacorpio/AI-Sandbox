@@ -11,6 +11,12 @@ public abstract record NormalizedOutput;
 /// </summary>
 public sealed record DecisionOutput(IReadOnlyDictionary<string, Answer> Answers) : NormalizedOutput;
 
+/// <summary>
+/// What a chat model produced. <paramref name="StructuredJson"/> is set when the prompt asked for
+/// structured output and the reply parsed as JSON; reasoning is kept apart from the answer.
+/// </summary>
+public sealed record ChatOutput(string Text, string? StructuredJson, string? Reasoning, int? ReasoningTokens = null) : NormalizedOutput;
+
 public abstract record Answer;
 
 /// <param name="Choice">The option with the highest probability.</param>
