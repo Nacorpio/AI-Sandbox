@@ -36,3 +36,36 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+.template-card {
+    cursor: pointer;
+    transition: border-color 120ms ease;
+}
+
+    .template-card:hover {
+        border-color: var(--mud-palette-primary);
+    }
+
+.raw-json {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 420px;
+    overflow: auto;
+    margin: 0;
+}
+
+.answer-bar-label {
+    min-width: 7rem;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.answer-bar-value {
+    min-width: 3rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.cursor-pointer { cursor: pointer; }

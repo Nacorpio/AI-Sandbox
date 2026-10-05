@@ -1,0 +1,61 @@
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Experimentation
+
+<MudPaper Outlined="true" Class="pa-4 h-100">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.subtitle1"><code>@Question.Key</code></MudText>
+            <MudSpacer />
+            @if (Confidence is { } confidence)
+            {
+                <MudTooltip Text="Provider-reported confidence">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@ConfidenceColor(confidence)">
+                        @Format.Percent(confidence) sure
+                    </MudChip>
+                </MudTooltip>
+            }
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Question.Instructions</MudText>
+
+        @switch (Answer)
+        {
+            case ChoiceAnswer choice:
+                <MudText Typo="Typo.h6">@choice.Choice</MudText>
+                <ProbabilityBars Values="choice.Probabilities" Highlight="@choice.Choice" />
+                break;
+            case ScoreAnswer score:
+                <MudText Typo="Typo.h6">
+                    @score.Score.ToString("0.##")
+                    @if (score.Legend.TryGetValue(((int)Math.Round(score.Score)).ToString(), out var label))
+                    {
+                        <span class="mud-text-secondary" style="font-weight: 400"> · @label</span>
+                    }
+                </MudText>
+                <ProbabilityBars Values="score.Probabilities" Labels="score.Legend" KeepOrder="true" />
+                break;
+            case NoulAnswer noul:
+                <MudText Typo="Typo.h6">@(noul.Value >= 0.5 ? "True" : "False") <span class="mud-text-secondary" style="font-weight: 400">· @Format.Percent(noul.Value)</span></MudText>
+                <MudProgressLinear Value="@(noul.Value * 100)" Color="@(noul.Value >= 0.5 ? Color.Success : Color.Default)" Rounded="true" Size="Size.Medium" />
+                break;
+            default:
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">No answer returned.</MudText>
+                break;
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public QuestionView Question { get; set; } = default!;
+
+    [Parameter] public Answer? Answer { get; set; }
+
+    private double? Confidence => Answer switch
+    {
+        ChoiceAnswer c => c.Confidence,
+        ScoreAnswer s => s.Confidence,
+        _ => null,
+    };
+
+    private static Color ConfidenceColor(double confidence) =>
+        confidence >= 0.8 ? Color.Success : confidence >= 0.5 ? Color.Warning : Color.Error;
+}

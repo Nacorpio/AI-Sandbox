@@ -1,0 +1,35 @@
+<MudStack Spacing="1">
+    @foreach (var (key, value) in Ordered)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudTooltip Text="@LabelFor(key)">
+                <MudText Typo="Typo.body2" Class="answer-bar-label">@LabelFor(key)</MudText>
+            </MudTooltip>
+            <div class="flex-grow-1">
+                <MudProgressLinear Value="@(value * 100)" Rounded="true" Size="Size.Medium"
+                                   Color="@(key == Highlight ? Color.Primary : Color.Default)" />
+            </div>
+            <MudText Typo="Typo.body2" Class="answer-bar-value">@Format.Percent(value)</MudText>
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyDictionary<string, double> Values { get; set; } = default!;
+
+    [Parameter] public IReadOnlyDictionary<string, string>? Labels { get; set; }
+
+    [Parameter] public string? Highlight { get; set; }
+
+    /// <summary>
+    /// Score levels read best in rubric order; choice options read best by probability.
+    /// </summary>
+    [Parameter] public bool KeepOrder { get; set; }
+
+    private IEnumerable<KeyValuePair<string, double>> Ordered => KeepOrder
+        ? Values.OrderBy(v => int.TryParse(v.Key, out var level) ? level : int.MaxValue)
+        : Values.OrderByDescending(v => v.Value);
+
+    private string LabelFor(string key) =>
+        Labels is not null && Labels.TryGetValue(key, out var label) ? $"{key} · {label}" : key;
+}

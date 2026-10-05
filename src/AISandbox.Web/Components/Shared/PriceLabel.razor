@@ -1,0 +1,21 @@
+@using AISandbox.Domain.Catalog.Models
+
+@if (Pricing.InputPerMillion == 0 && Pricing.OutputPerMillion == 0)
+{
+    <MudText Typo="Typo.body2">Free</MudText>
+}
+else
+{
+    <MudTooltip Text="Input / output, per million tokens">
+        <MudText Typo="Typo.body2">
+            @Format(Pricing.InputPerMillion) in · @(Pricing.OutputPerMillion == 0 ? "free" : Format(Pricing.OutputPerMillion)) out
+        </MudText>
+    </MudTooltip>
+}
+
+@code {
+    [Parameter, EditorRequired] public PricingSchedule Pricing { get; set; } = default!;
+
+    private string Format(decimal amount) =>
+        Pricing.Currency == "USD" ? $"${amount:0.####}" : $"{amount:0.####} {Pricing.Currency}";
+}

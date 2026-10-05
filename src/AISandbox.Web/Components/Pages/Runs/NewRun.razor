@@ -1,0 +1,131 @@
+@page "/runs/new"
+@using AISandbox.Application.Features.Models
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Catalog.Models
+@using AISandbox.Domain.Experimentation
+@inject UseCases UseCases
+@inject NavigationManager Navigation
+
+<PageTitle>New run · AI Sandbox</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">New run</MudText>
+
+<MudStack Row="true" Spacing="1" Class="mb-4" Wrap="Wrap.Wrap">
+    @for (var i = 0; i < Steps.Length; i++)
+    {
+        var index = i;
+        <MudChip T="string" Color="@(index == _step ? Color.Primary : Color.Default)"
+                 Variant="@(index == _step ? Variant.Filled : Variant.Outlined)"
+                 OnClick="() => _step = index">@($"{index + 1}. {Steps[index]}")</MudChip>
+    }
+</MudStack>
+
+@switch (_step)
+{
+    case 0:
+        <MudTextField @bind-Value="_state" Label="State" Variant="Variant.Outlined" Sizing="InputSizing.Auto" Lines="6" MaxLines="20"
+                      HelperText="The content to evaluate. Plain text, or JSON starting with { or [." />
+        break;
+
+    case 1:
+        <MudStack Spacing="3">
+            @foreach (var question in _questions)
+            {
+                <QuestionEditor Draft="question" OnRemove="() => _questions.Remove(question)" />
+            }
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _questions.Add(new())" Class="align-self-start"
+                       Disabled="@(_questions.Count >= RunInput.MaxQuestions)">Add question</MudButton>
+        </MudStack>
+        break;
+
+    default:
+        @if (_models is null)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (DecisionModels.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">Create a decision model first, on the <MudLink Href="models">Models</MudLink> page.</MudAlert>
+        }
+        else
+        {
+            <MudSelect T="ModelDefinitionId?" @bind-Value="_modelId" Label="Model" Variant="Variant.Outlined">
+                @foreach (var model in DecisionModels)
+                {
+                    <MudSelectItem T="ModelDefinitionId?" Value="model.Id">@model.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
+            @if (DecisionModels.FirstOrDefault(m => m.Id == _modelId) is { } selected)
+            {
+                <MudStack Row="true" Spacing="2" Class="mt-2">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><code>@selected.RemoteId</code></MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><PriceLabel Pricing="selected.Pricing" /></MudChip>
+                </MudStack>
+            }
+        }
+        break;
+}
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">@_error</MudAlert>
+}
+
+<MudStack Row="true" Class="mt-6">
+    <MudButton Variant="Variant.Text" Disabled="@(_step == 0)" OnClick="() => _step--">Back</MudButton>
+    <MudSpacer />
+    @if (_step < Steps.Length - 1)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => _step++">Next</MudButton>
+    }
+    else
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow"
+                   Disabled="@(_modelId is null || _running)" OnClick="RunAsync">
+            @(_running ? "Running…" : "Run")
+        </MudButton>
+    }
+</MudStack>
+
+@code {
+    private static readonly string[] Steps = ["Input", "Ask", "Model & run"];
+
+    private int _step;
+    private string? _state;
+    private readonly List<QuestionDraft> _questions = [new()];
+    private IReadOnlyList<ModelSummary>? _models;
+    private ModelDefinitionId? _modelId;
+    private string? _error;
+    private bool _running;
+
+    private IReadOnlyList<ModelSummary> DecisionModels => _models!.Where(m => m.Kind == ModelKind.Decision).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _models = await UseCases.QueryAsync<ListModels, IReadOnlyList<ModelSummary>>(new ListModels());
+        _modelId = DecisionModels.FirstOrDefault()?.Id;
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _error = null;
+        var result = await UseCases.SendAsync<StartRun, RunId>(
+            new StartRun(_state, _questions.Select(q => q.ToInput()).ToList(), [_modelId!.Value]));
+        _running = false;
+
+        if (result.IsSuccess)
+        {
+            Navigation.NavigateTo($"runs/{result.Value}");
+            return;
+        }
+
+        _error = result.Error!.Message;
+        _step = result.Error.Code switch
+        {
+            "validation.state" => 0,
+            "validation.models" => 2,
+            _ => 1,
+        };
+    }
+}

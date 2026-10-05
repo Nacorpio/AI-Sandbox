@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "System One response",
+  "type": "object",
+  "required": [ "answers" ],
+  "properties": {
+    "model": { "type": "string", "description": "Resolved, versioned model id." },
+    "answers": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "object", "required": [ "type", "choice" ], "properties": { "type": { "const": "choice" }, "choice": { "type": "string" }, "confidence": { "type": "number" }, "probabilities": { "type": "object", "additionalProperties": { "type": "number" } } } },
+          { "type": "object", "required": [ "type", "score" ], "properties": { "type": { "const": "score" }, "score": { "type": "number" }, "confidence": { "type": "number" }, "legend": { "type": "object" }, "probabilities": { "type": "object", "additionalProperties": { "type": "number" } } } },
+          { "type": "object", "required": [ "type", "noul" ], "properties": { "type": { "const": "noul" }, "noul": { "type": "number", "minimum": 0, "maximum": 1 } } }
+        ]
+      }
+    },
+    "usage": { "type": "object", "properties": { "input_tokens": { "type": "integer" }, "output_tokens": { "type": "integer" } } }
+  }
+}

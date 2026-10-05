@@ -1,11 +1,18 @@
 using AISandbox.Application.Abstractions;
+using AISandbox.Application.Features.Models;
 using AISandbox.Application.Features.Providers;
+using AISandbox.Application.Features.Runs;
+using AISandbox.Domain.Catalog.Models;
 using AISandbox.Infrastructure.Persistence;
+using AISandbox.Infrastructure.Protocols;
+using AISandbox.Infrastructure.Protocols.SystemOne;
 using AISandbox.Infrastructure.Secrets;
+using AISandbox.Infrastructure.Templates;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AISandbox.Infrastructure;
 
@@ -13,6 +20,7 @@ public static class DependencyInjection
 {
     public const string ConnectionStringName = "AISandbox";
     public const string DefaultConnectionString = "Data Source=aisandbox.db";
+    private static readonly TimeSpan ProviderTimeout = TimeSpan.FromSeconds(60);
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
@@ -21,10 +29,22 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
         services.AddDataProtection().SetApplicationName("AISandbox");
+        services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<IProviderRepository, ProviderRepository>();
         services.AddScoped<IProviderQueries, ProviderQueries>();
         services.AddScoped<ISecretStore, DataProtectionSecretStore>();
+
+        services.AddSingleton<ITemplateCatalog, EmbeddedTemplateCatalog>();
+        services.AddScoped<IModelDefinitionRepository, ModelDefinitionRepository>();
+        services.AddScoped<IModelQueries, ModelQueries>();
+        services.AddScoped<IRunRepository, RunRepository>();
+        services.AddScoped<IRunQueries, RunQueries>();
+
+        services.AddHttpClient(ProviderHttp.ClientName, client => client.Timeout = ProviderTimeout);
+        services.AddSingleton<ProviderHttp>();
+        services.AddSingleton<IModelInvokerResolver, ModelInvokerResolver>();
+        services.AddKeyedSingleton<IModelInvoker, SystemOneInvoker>(ProtocolId.SystemOne.Value);
 
         return services;
     }
