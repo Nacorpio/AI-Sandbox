@@ -5,7 +5,8 @@
 <MudDialog>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudSelect T="ProviderKind" Label="Kind" Value="_kind" ValueChanged="KindChanged" Variant="Variant.Outlined">
+            <MudSelect T="ProviderKind" Label="Kind" Value="_kind" ValueChanged="KindChanged" Variant="Variant.Outlined"
+                       Disabled="@IsEdit">
                 @foreach (var kind in Enum.GetValues<ProviderKind>())
                 {
                     <MudSelectItem Value="kind">@ProviderDisplay.KindName(kind)</MudSelectItem>
@@ -26,7 +27,7 @@
             }
 
             <MudTextField @bind-Value="_apiKey" Label="API key" Variant="Variant.Outlined" InputType="InputType.Password"
-                          Disabled="@(_auth == AuthSchemeKind.None)"
+                          Disabled="@(_auth == AuthSchemeKind.None)" Placeholder="@(IsEdit ? "unchanged" : null)"
                           HelperText="@KeyHelp" autocomplete="off" />
 
             <MudExpansionPanels Elevation="0" Outlined="true">
@@ -43,6 +44,14 @@
                         {
                             <MudTextField @bind-Value="_headerName" Label="Header name" Variant="Variant.Outlined" Placeholder="X-Api-Key" />
                         }
+                        <MudText Typo="Typo.subtitle2">Rate limit</MudText>
+                        <MudNumericField T="int?" @bind-Value="_maxConcurrency" Label="Max concurrency" Variant="Variant.Outlined" Min="1"
+                                         Error="@HasError("rateLimit")" ErrorText="@ErrorFor("rateLimit")"
+                                         HelperText="@ConcurrencyHelp" />
+                        <MudNumericField T="double?" @bind-Value="_requestsPerSecond" Label="Requests per second" Variant="Variant.Outlined" Min="0"
+                                         HelperText="Optional. Extra calls wait their turn." />
+                        <MudNumericField T="double?" @bind-Value="_tokensPerSecond" Label="Tokens per second" Variant="Variant.Outlined" Min="0"
+                                         HelperText="Optional. Not enforced yet." />
                     </MudStack>
                 </MudExpansionPanel>
             </MudExpansionPanels>
@@ -55,12 +64,20 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="() => MudDialog.Cancel()">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync" Disabled="_saving">Register</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync" Disabled="_saving">@(IsEdit ? "Save" : "Register")</MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>When set, the dialog edits this provider instead of registering a new one.</summary>
+    [Parameter] public ProviderSummary? Existing { get; set; }
+
+    private bool IsEdit => Existing is not null;
+    private int? _maxConcurrency;
+    private double? _requestsPerSecond;
+    private double? _tokensPerSecond;
 
     private ProviderKind _kind = ProviderKind.OpenRouter;
     private string? _name = "OpenRouter";
@@ -72,9 +89,33 @@
     private AISandbox.Domain.Abstractions.Error? _error;
     private bool _saving;
 
-    private string KeyHelp => ProviderDefaults.EnvironmentVariableFor(_kind) is { } variable
-        ? $"Stored encrypted. {variable} overrides it when set."
-        : "Stored encrypted. Leave empty to add later.";
+    protected override void OnInitialized()
+    {
+        if (Existing is not { } existing)
+        {
+            return;
+        }
+
+        _kind = existing.Kind;
+        _name = existing.Name;
+        _baseUrl = existing.BaseUrl;
+        _auth = existing.Auth;
+        _headerName = existing.AuthHeaderName;
+        _accountId = existing.PathVariables.GetValueOrDefault(Provider.AccountIdVariable);
+        _maxConcurrency = existing.RateLimit?.MaxConcurrency;
+        _requestsPerSecond = existing.RateLimit?.RequestsPerSecond;
+        _tokensPerSecond = existing.RateLimit?.TokensPerSecond;
+    }
+
+    private string KeyHelp =>
+        (IsEdit ? "The stored key is never shown. Type a new one to replace it. " : "Stored encrypted. ")
+        + (ProviderDefaults.EnvironmentVariableFor(_kind) is { } variable
+            ? $"{variable} overrides it when set."
+            : IsEdit ? string.Empty : "Leave empty to add later.");
+
+    private const string ConcurrencyHelp = "Simultaneous calls to this provider. Leave all rate-limit fields empty to use the default.";
+
+    private RateLimitSettings? RateLimit() => new(_maxConcurrency, _requestsPerSecond, _tokensPerSecond);
 
     private void KindChanged(ProviderKind kind)
     {
@@ -95,8 +136,11 @@
     private async Task SubmitAsync()
     {
         _saving = true;
-        var result = await UseCases.SendAsync<RegisterProvider, ProviderId>(
-            new RegisterProvider(_name, _kind, _baseUrl, _auth, _headerName, _apiKey, PathVariables()));
+        var result = Existing is { } existing
+            ? await UseCases.SendAsync<UpdateProvider, ProviderId>(
+                new UpdateProvider(existing.Id, _name, _baseUrl, _auth, _headerName, _apiKey, PathVariables(), RateLimit()))
+            : await UseCases.SendAsync<RegisterProvider, ProviderId>(
+                new RegisterProvider(_name, _kind, _baseUrl, _auth, _headerName, _apiKey, PathVariables(), RateLimit()));
         _saving = false;
 
         if (result.IsSuccess)
@@ -114,7 +158,7 @@
             ? new Dictionary<string, string> { [Provider.AccountIdVariable] = _accountId }
             : null;
 
-    private static bool IsFieldError(string code) => code is "validation.name" or "validation.baseUrl" or "validation.auth" or "validation.pathVariables";
+    private static bool IsFieldError(string code) => code is "validation.name" or "validation.baseUrl" or "validation.auth" or "validation.pathVariables" or "validation.rateLimit";
 
     private bool HasError(string field) => _error?.Code == $"validation.{field}";
 

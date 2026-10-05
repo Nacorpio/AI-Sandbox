@@ -49,6 +49,15 @@ internal sealed class DataProtectionSecretStore(
         }
     }
 
+    public async Task DeleteAsync(SecretReference reference, CancellationToken cancellationToken)
+    {
+        var row = await db.Secrets.FindAsync([reference.Name], cancellationToken);
+        if (row is not null)
+        {
+            db.Secrets.Remove(row);
+        }
+    }
+
     public async Task<string?> GetAsync(SecretReference reference, CancellationToken cancellationToken)
     {
         var fromEnvironment = ReadOverride(reference);

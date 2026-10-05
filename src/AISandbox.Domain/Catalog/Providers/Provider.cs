@@ -20,6 +20,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
         AuthScheme auth,
         SecretReference secret,
         IReadOnlyDictionary<string, string> pathVariables,
+        RateLimitPolicy? rateLimit,
         DateTimeOffset createdAt)
         : base(id)
     {
@@ -29,6 +30,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
         Auth = auth;
         Secret = secret;
         PathVariables = pathVariables;
+        RateLimit = rateLimit;
         CreatedAt = createdAt;
     }
 
@@ -58,6 +60,9 @@ public sealed class Provider : AggregateRoot<ProviderId>
     /// </summary>
     public IReadOnlyDictionary<string, string> PathVariables { get; private set; }
 
+    /// <summary>Null means the global default concurrency applies.</summary>
+    public RateLimitPolicy? RateLimit { get; private set; }
+
     public DateTimeOffset CreatedAt { get; private set; }
 
     public static Result<Provider> Register(
@@ -67,7 +72,63 @@ public sealed class Provider : AggregateRoot<ProviderId>
         AuthScheme auth,
         string? environmentVariable,
         IReadOnlyDictionary<string, string>? pathVariables,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        RateLimitPolicy? rateLimit = null)
+    {
+        if (!Enum.IsDefined(kind))
+        {
+            return Error.Validation("kind", "Unknown provider kind.");
+        }
+
+        var fields = ValidateFields(name, baseUrl, kind, pathVariables);
+        if (fields.IsFailure)
+        {
+            return fields.Error!;
+        }
+
+        var (trimmedName, endpoint, variables) = fields.Value;
+        var id = ProviderId.New();
+        var secret = SecretReference.ForProvider(id, CleanEnvironmentVariable(environmentVariable));
+        var provider = new Provider(id, trimmedName, kind, endpoint, auth, secret, variables, rateLimit, now);
+        provider.Raise(new ProviderRegistered(id, trimmedName, kind, now));
+        return provider;
+    }
+
+    /// <summary>
+    /// Replaces everything editable. The kind never changes; the secret keeps its name.
+    /// </summary>
+    public Result Update(
+        string? name,
+        string? baseUrl,
+        AuthScheme auth,
+        string? environmentVariable,
+        IReadOnlyDictionary<string, string>? pathVariables,
+        RateLimitPolicy? rateLimit)
+    {
+        var fields = ValidateFields(name, baseUrl, Kind, pathVariables);
+        if (fields.IsFailure)
+        {
+            return Result.Failure(fields.Error!);
+        }
+
+        var (trimmedName, endpoint, variables) = fields.Value;
+        Name = trimmedName;
+        BaseUrl = endpoint;
+        Auth = auth;
+        Secret = Secret with { EnvironmentVariable = CleanEnvironmentVariable(environmentVariable) };
+        PathVariables = variables;
+        RateLimit = rateLimit;
+        return Result.Success();
+    }
+
+    private static string? CleanEnvironmentVariable(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static Result<(string Name, EndpointUri Endpoint, IReadOnlyDictionary<string, string> Variables)> ValidateFields(
+        string? name,
+        string? baseUrl,
+        ProviderKind kind,
+        IReadOnlyDictionary<string, string>? pathVariables)
     {
         var trimmedName = name?.Trim();
         if (string.IsNullOrEmpty(trimmedName))
@@ -78,11 +139,6 @@ public sealed class Provider : AggregateRoot<ProviderId>
         if (trimmedName.Length > MaxNameLength)
         {
             return Error.Validation("name", $"Name must be at most {MaxNameLength} characters.");
-        }
-
-        if (!Enum.IsDefined(kind))
-        {
-            return Error.Validation("kind", "Unknown provider kind.");
         }
 
         var endpoint = EndpointUri.Create(baseUrl);
@@ -97,11 +153,7 @@ public sealed class Provider : AggregateRoot<ProviderId>
             return variables.Error!;
         }
 
-        var id = ProviderId.New();
-        var secret = SecretReference.ForProvider(id, string.IsNullOrWhiteSpace(environmentVariable) ? null : environmentVariable.Trim());
-        var provider = new Provider(id, trimmedName, kind, endpoint.Value, auth, secret, variables.Value, now);
-        provider.Raise(new ProviderRegistered(id, trimmedName, kind, now));
-        return provider;
+        return (trimmedName, endpoint.Value, variables.Value);
     }
 
     private static Result<IReadOnlyDictionary<string, string>> ValidatePathVariables(

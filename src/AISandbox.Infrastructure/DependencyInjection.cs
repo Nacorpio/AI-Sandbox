@@ -23,6 +23,7 @@ public static class DependencyInjection
 {
     public const string ConnectionStringName = "AISandbox";
     public const string DefaultConnectionString = "Data Source=aisandbox.db";
+    private static readonly TimeSpan ConnectionTestTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan ProviderTimeout = TimeSpan.FromSeconds(60);
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
@@ -58,6 +59,8 @@ public static class DependencyInjection
 
         services.AddHttpClient(ProviderHttp.ClientName, client => client.Timeout = ProviderTimeout);
         services.AddSingleton<ProviderHttp>();
+        services.AddHttpClient(ProviderConnectionTester.ClientName, client => client.Timeout = ConnectionTestTimeout);
+        services.AddSingleton<IProviderConnectionTester, ProviderConnectionTester>();
         services.AddSingleton<IModelInvokerResolver, ModelInvokerResolver>();
         services.AddKeyedSingleton<IModelInvoker, SystemOneInvoker>(ProtocolId.SystemOne.Value);
         services.AddKeyedSingleton<IModelInvoker, OpenRouterDecisionsInvoker>(ProtocolId.OpenRouterDecisions.Value);

@@ -11,7 +11,8 @@ public sealed record RegisterProvider(
     AuthSchemeKind AuthKind,
     string? AuthHeaderName,
     string? ApiKey,
-    IReadOnlyDictionary<string, string>? PathVariables = null);
+    IReadOnlyDictionary<string, string>? PathVariables = null,
+    RateLimitSettings? RateLimit = null);
 
 public sealed class RegisterProviderHandler(
     IProviderRepository providers,
@@ -28,6 +29,12 @@ public sealed class RegisterProviderHandler(
             return auth.Error!;
         }
 
+        var rateLimit = RateLimitSettings.ToPolicy(command.RateLimit);
+        if (rateLimit.IsFailure)
+        {
+            return rateLimit.Error!;
+        }
+
         var provider = Provider.Register(
             command.Name,
             command.Kind,
@@ -35,7 +42,8 @@ public sealed class RegisterProviderHandler(
             auth.Value,
             ProviderDefaults.EnvironmentVariableFor(command.Kind),
             command.PathVariables,
-            time.GetUtcNow());
+            time.GetUtcNow(),
+            rateLimit.Value);
         if (provider.IsFailure)
         {
             return provider.Error!;

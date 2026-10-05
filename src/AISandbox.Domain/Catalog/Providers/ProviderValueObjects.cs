@@ -100,3 +100,44 @@ public sealed record SecretReference(string Name, string? EnvironmentVariable)
     public static SecretReference ForProvider(ProviderId id, string? environmentVariable) =>
         new($"provider:{id}", environmentVariable);
 }
+
+/// <summary>
+/// How hard the sandbox may call a provider: simultaneous calls, calls per second and tokens
+/// per second. A provider without a policy uses the global default concurrency.
+/// </summary>
+public sealed record RateLimitPolicy
+{
+    private RateLimitPolicy(int maxConcurrency, double? requestsPerSecond, double? tokensPerSecond)
+    {
+        MaxConcurrency = maxConcurrency;
+        RequestsPerSecond = requestsPerSecond;
+        TokensPerSecond = tokensPerSecond;
+    }
+
+    public int MaxConcurrency { get; }
+
+    public double? RequestsPerSecond { get; }
+
+    /// <summary>Stored for later; not enforced yet.</summary>
+    public double? TokensPerSecond { get; }
+
+    public static Result<RateLimitPolicy> Create(int maxConcurrency, double? requestsPerSecond, double? tokensPerSecond)
+    {
+        if (maxConcurrency < 1)
+        {
+            return Error.Validation("rateLimit", "Max concurrency must be at least 1.");
+        }
+
+        if (requestsPerSecond is <= 0 || requestsPerSecond is { } r && !double.IsFinite(r))
+        {
+            return Error.Validation("rateLimit", "Requests per second must be greater than 0.");
+        }
+
+        if (tokensPerSecond is <= 0 || tokensPerSecond is { } t && !double.IsFinite(t))
+        {
+            return Error.Validation("rateLimit", "Tokens per second must be greater than 0.");
+        }
+
+        return new RateLimitPolicy(maxConcurrency, requestsPerSecond, tokensPerSecond);
+    }
+}

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Authoring.Questions;
 using AISandbox.Domain.Catalog.Models;
+using AISandbox.Domain.Catalog.Providers;
 using AISandbox.Domain.Experimentation;
 
 namespace AISandbox.Infrastructure.Persistence;
@@ -28,6 +29,7 @@ internal static class DomainJson
         options.Converters.Add(new QuestionConverter());
         options.Converters.Add(new RunInputConverter());
         options.Converters.Add(new PricingScheduleConverter());
+        options.Converters.Add(new RateLimitPolicyConverter());
         options.Converters.Add(new JsonStringEnumConverter());
         options.TypeInfoResolver = new DefaultJsonTypeInfoResolver
         {
@@ -142,6 +144,23 @@ internal static class DomainJson
                 value.State,
                 value.Questions,
                 value.QuestionSet is { } r ? new QuestionSetRefDocument(r.Id.Value, r.Version) : null),
+                options);
+    }
+
+    private sealed record RateLimitDocument(int MaxConcurrency, double? RequestsPerSecond, double? TokensPerSecond);
+
+    private sealed class RateLimitPolicyConverter : JsonConverter<RateLimitPolicy>
+    {
+        public override RateLimitPolicy Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var document = JsonSerializer.Deserialize<RateLimitDocument>(ref reader, options)!;
+            return RateLimitPolicy.Create(document.MaxConcurrency, document.RequestsPerSecond, document.TokensPerSecond).Value;
+        }
+
+        public override void Write(Utf8JsonWriter writer, RateLimitPolicy value, JsonSerializerOptions options) =>
+            JsonSerializer.Serialize(
+                writer,
+                new RateLimitDocument(value.MaxConcurrency, value.RequestsPerSecond, value.TokensPerSecond),
                 options);
     }
 
