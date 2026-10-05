@@ -1,0 +1,152 @@
+@page "/models/{Id:guid}"
+@using AISandbox.Application.Features.Models
+@using AISandbox.Domain.Catalog.Models
+@using AISandbox.Web.Components.Forms
+@inject UseCases UseCases
+@inject ISchemaValidator Validator
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_details?.DisplayName ?? "Model") · AI Sandbox</PageTitle>
+
+@if (_loaded && _details is null)
+{
+    <MudAlert Severity="Severity.Warning">That model does not exist. <MudLink Href="models">Back to models</MudLink></MudAlert>
+}
+else if (_details is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="models" aria-label="Back to models" />
+        <MudText Typo="Typo.h4">@_details.DisplayName</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSave || _saving)" OnClick="SaveAsync">@(_saving ? "Saving…" : "Save")</MudButton>
+    </MudStack>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+    }
+
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+        <MudTabPanel Text="General">
+            <MudStack Spacing="3" Style="max-width: 36rem">
+                <MudTextField @bind-Value="_displayName" Label="Display name" Variant="Variant.Outlined" Immediate="true" MaxLength="@ModelDefinition.MaxDisplayNameLength" />
+                <MudTextField @bind-Value="_remoteId" Label="Remote model id" Variant="Variant.Outlined" Immediate="true"
+                              HelperText="The model name the provider expects in requests." />
+                <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@_details.Kind</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@_details.Protocol</MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@_details.ProviderName</MudChip>
+                    @if (_details.Origin is { } origin)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Template @origin.TemplateId v@(origin.Version)</MudChip>
+                    }
+                </MudStack>
+            </MudStack>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Schemas">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="6">
+                    <SchemaEditor Label="Input schema" Value="@_inputSchema" ValueChanged="v => { _inputSchema = v; Revalidate(); }" Issue="@_inputIssue" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <SchemaEditor Label="Output schema" Value="@_outputSchema" ValueChanged="v => { _outputSchema = v; Revalidate(); }" Issue="@_outputIssue" />
+                </MudItem>
+                <MudItem xs="12">
+                    <SchemaEditor Label="UI hints" Value="@_hints" ValueChanged="v => { _hints = v; Revalidate(); }" Issue="@_hintsIssue"
+                                  Help="Keyed by field path, for example /options/temperature. Allowed: label, help, group, order, widget." Lines="6" />
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Form preview">
+            @if (_inputIssue is not null || _hintsIssue is not null)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">Fix the input schema and UI hints to preview the form.</MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">This is the dialog users see for this model's input.</MudText>
+                <MudGrid Spacing="4">
+                    <MudItem xs="12" md="7">
+                        <SchemaForm Schema="@(new JsonSchemaDocument(_inputSchema))" Hints="@(UiHints.Parse(_hints).Value)" ValueChanged="v => _previewValue = v" />
+                    </MudItem>
+                    <MudItem xs="12" md="5">
+                        <MudText Typo="Typo.overline" Class="mud-text-secondary">Current value</MudText>
+                        <pre class="pa-2 mud-theme-surface" style="overflow:auto">@(_previewValue ?? "{}")</pre>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ModelDetails? _details;
+    private bool _loaded;
+    private string _displayName = string.Empty;
+    private string _remoteId = string.Empty;
+    private string _inputSchema = "{}";
+    private string _outputSchema = "{}";
+    private string _hints = "{}";
+    private string? _inputIssue;
+    private string? _outputIssue;
+    private string? _hintsIssue;
+    private string? _previewValue;
+    private string? _error;
+    private bool _saving;
+
+    private bool CanSave => _inputIssue is null && _outputIssue is null && _hintsIssue is null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _details = await UseCases.QueryAsync<GetModelDefinition, ModelDetails?>(new GetModelDefinition(new ModelDefinitionId(Id)));
+        _loaded = true;
+        if (_details is null)
+        {
+            return;
+        }
+
+        _displayName = _details.DisplayName;
+        _remoteId = _details.RemoteId;
+        _inputSchema = _details.InputSchema;
+        _outputSchema = _details.OutputSchema;
+        _hints = _details.UiHints;
+        Revalidate();
+    }
+
+    private void Revalidate()
+    {
+        _inputIssue = FirstIssue(Validator.CheckSchema(_inputSchema));
+        _outputIssue = FirstIssue(Validator.CheckSchema(_outputSchema));
+        var hints = UiHints.Parse(_hints);
+        _hintsIssue = hints.IsFailure ? hints.Error!.Message : null;
+    }
+
+    private static string? FirstIssue(ValidationOutcome outcome) =>
+        outcome.IsValid ? null : outcome.Issues[0].Message;
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _error = null;
+        var result = await UseCases.SendAsync<UpdateModelDefinition, ModelDefinitionId>(
+            new UpdateModelDefinition(new ModelDefinitionId(Id), _displayName, _remoteId, _inputSchema, _outputSchema, _hints));
+        _saving = false;
+
+        if (result.IsFailure)
+        {
+            _error = result.Error!.Message;
+            return;
+        }
+
+        Snackbar.Add("Model saved.", Severity.Success);
+        _details = _details! with { DisplayName = _displayName.Trim() };
+    }
+}

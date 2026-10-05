@@ -1,0 +1,307 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using AISandbox.Application.Forms
+@* Renders one node of a FormModel. Pointer is the JSON Pointer of the value this node edits. *@
+
+<div class="schema-field" data-widget="@WidgetName" data-pointer="@Pointer">
+    @switch (Node)
+    {
+        case TextField text:
+            <MudTooltip Text="@text.Help" Disabled="@(text.Help is null)" Placement="Placement.Top">
+                <MudTextField T="string" Value="@CurrentString" ValueChanged="SetString" OnBlur="State.Validate" Immediate="true"
+                              Label="@Node.Label" Required="@Node.Required" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              InputType="@InputTypeOf(text.Format)" Lines="@(text.Multiline ? 4 : 1)"
+                              Error="@HasIssue" ErrorText="@FirstIssue" />
+            </MudTooltip>
+            break;
+
+        case EnumField options when options.Segmented:
+            <MudTooltip Text="@options.Help" Disabled="@(options.Help is null)" Placement="Placement.Top">
+                <div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Node.Label@(Node.Required ? " *" : "")</MudText>
+                    <MudToggleGroup T="string" Value="@CurrentString" ValueChanged="SetString" Color="Color.Primary" Size="Size.Small"
+                                    CheckMark="false" Outlined="true" Class="d-flex">
+                        @foreach (var option in options.Options)
+                        {
+                            <MudToggleItem Value="@option" Text="@option" />
+                        }
+                    </MudToggleGroup>
+                    @if (HasIssue)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Error">@FirstIssue</MudText>
+                    }
+                </div>
+            </MudTooltip>
+            break;
+
+        case EnumField options:
+            <MudTooltip Text="@options.Help" Disabled="@(options.Help is null)" Placement="Placement.Top">
+                <MudSelect T="string" Value="@CurrentString" ValueChanged="SetString" Label="@Node.Label" Required="@Node.Required"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="@(!Node.Required)" Error="@HasIssue" ErrorText="@FirstIssue">
+                    @foreach (var option in options.Options)
+                    {
+                        <MudSelectItem T="string" Value="@option">@option</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudTooltip>
+            break;
+
+        case NumberField number when number.Slider:
+            <MudTooltip Text="@number.Help" Disabled="@(number.Help is null)" Placement="Placement.Top">
+                <div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Node.Label@(Node.Required ? " *" : "")</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                        <MudSlider T="decimal" Value="@(CurrentNumber ?? number.Minimum!.Value)" ValueChanged="v => SetNumber(v, number)"
+                                   Min="@number.Minimum!.Value" Max="@number.Maximum!.Value" Step="@(number.IsInteger ? 1m : SliderStep(number))"
+                                   Color="Color.Primary" Class="flex-grow-1" />
+                        <MudNumericField T="decimal?" Value="@CurrentNumber" ValueChanged="v => SetNumber(v, number)" OnBlur="State.Validate"
+                                         Min="@number.Minimum" Max="@number.Maximum" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         HideSpinButtons="true" Style="max-width: 7rem" />
+                    </MudStack>
+                    @if (HasIssue)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Error">@FirstIssue</MudText>
+                    }
+                </div>
+            </MudTooltip>
+            break;
+
+        case NumberField number:
+            <MudTooltip Text="@number.Help" Disabled="@(number.Help is null)" Placement="Placement.Top">
+                <MudNumericField T="decimal?" Value="@CurrentNumber" ValueChanged="v => SetNumber(v, number)" OnBlur="State.Validate"
+                                 Label="@Node.Label" Required="@Node.Required" Min="@number.Minimum" Max="@number.Maximum"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Error="@HasIssue" ErrorText="@FirstIssue" />
+            </MudTooltip>
+            break;
+
+        case SwitchField toggle:
+            <MudTooltip Text="@toggle.Help" Disabled="@(toggle.Help is null)" Placement="Placement.Top">
+                <MudSwitch T="bool" Value="@(CurrentBool)" ValueChanged="SetBool" Color="Color.Primary" Label="@Node.Label" />
+            </MudTooltip>
+            break;
+
+        case ChipsField chips:
+            <MudTooltip Text="@chips.Help" Disabled="@(chips.Help is null)" Placement="Placement.Top">
+                <div>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Node.Label@(Node.Required ? " *" : "")</MudText>
+                    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" AlignItems="AlignItems.Center">
+                        @foreach (var (item, index) in ChipItems.Select((item, index) => (item, index)))
+                        {
+                            var at = index;
+                            <MudChip T="string" Size="Size.Small" OnClose="() => RemoveChip(at)">@item</MudChip>
+                        }
+                        <MudTextField T="string" @bind-Value="_chipDraft" Label="Add and press Enter" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Immediate="true" OnKeyDown="OnChipKey" OnBlur="CommitChip" Error="@HasIssue" ErrorText="@FirstIssue" />
+                    </MudStack>
+                </div>
+            </MudTooltip>
+            break;
+
+        case ObjectField obj:
+            <FormObjectView Node="obj" Pointer="@Pointer" State="State" IsRoot="@(Pointer.Length == 0)" />
+            break;
+
+        case CardListField list:
+            <MudTooltip Text="@list.Help" Disabled="@(list.Help is null)" Placement="Placement.Top">
+                <MudText Typo="Typo.subtitle2">@Node.Label</MudText>
+            </MudTooltip>
+            @for (var i = 0; i < ListCount; i++)
+            {
+                var index = i;
+                <MudCard Outlined="true" Class="mt-2">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Start">
+                            <div class="flex-grow-1">
+                                <FormNodeView Node="list.Item" Pointer="@FormState.Child(Pointer, index.ToString())" State="State" />
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Remove item" OnClick="() => RemoveItem(index)" />
+                        </MudStack>
+                    </MudCardContent>
+                </MudCard>
+            }
+            <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" Class="mt-1" OnClick="() => AddItem(list)">Add</MudButton>
+            break;
+
+        case OneOfField oneOf:
+            <MudText Typo="Typo.subtitle2">@Node.Label</MudText>
+            <MudTabs ActivePanelIndex="@_variant" ActivePanelIndexChanged="i => SelectVariant(oneOf, i)" Elevation="0" Rounded="true" Class="mt-1">
+                @foreach (var variant in oneOf.Variants)
+                {
+                    <MudTabPanel Text="@variant.Title">
+                        <FormNodeView Node="variant.Node" Pointer="@Pointer" State="State" />
+                    </MudTabPanel>
+                }
+            </MudTabs>
+            break;
+
+        case JsonField json:
+            <MudTooltip Text="@json.Help" Disabled="@(json.Help is null)" Placement="Placement.Top">
+                <MudTextField T="string" Value="@_jsonText" ValueChanged="SetJson" OnBlur="State.Validate" Label="@($"{Node.Label} (JSON)")"
+                              Required="@Node.Required" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="4" Class="font-monospace"
+                              Error="@(_jsonError is not null || HasIssue)" ErrorText="@(_jsonError ?? FirstIssue)" />
+            </MudTooltip>
+            break;
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FormNode Node { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string Pointer { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public FormState State { get; set; } = default!;
+
+    private string _chipDraft = string.Empty;
+    private string? _jsonText;
+    private string? _jsonError;
+    private int _variant;
+
+    private string WidgetName => Node switch
+    {
+        TextField t => t.Multiline ? "textarea" : t.Format switch
+        {
+            TextFormat.Uri => "uri",
+            TextFormat.Email => "email",
+            TextFormat.Date => "date",
+            _ => "text",
+        },
+        EnumField e => e.Segmented ? "segmented" : "select",
+        NumberField n => n.Slider ? "slider" : "number",
+        SwitchField => "switch",
+        ChipsField => "chips",
+        ObjectField => "fieldset",
+        CardListField => "cards",
+        OneOfField => "tabs",
+        _ => "json",
+    };
+
+    private bool HasIssue => State.IssuesAt(Pointer).Any();
+
+    private string? FirstIssue => State.IssuesAt(Pointer).FirstOrDefault()?.Message;
+
+    private string? CurrentString => State.Get(Pointer) is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
+
+    private decimal? CurrentNumber => State.Get(Pointer) is JsonValue v && v.TryGetValue<decimal>(out var n) ? n : null;
+
+    private bool CurrentBool => State.Get(Pointer) is JsonValue v && v.TryGetValue<bool>(out var b) && b;
+
+    private int ListCount => (State.Get(Pointer) as JsonArray)?.Count ?? 0;
+
+    private IEnumerable<string> ChipItems => (State.Get(Pointer) as JsonArray)?.Select(n => n?.ToString() ?? string.Empty) ?? [];
+
+    private static InputType InputTypeOf(TextFormat format) => format switch
+    {
+        TextFormat.Uri => InputType.Url,
+        TextFormat.Email => InputType.Email,
+        TextFormat.Date => InputType.Date,
+        _ => InputType.Text,
+    };
+
+    private static decimal SliderStep(NumberField number) =>
+        (number.Maximum!.Value - number.Minimum!.Value) <= 10m ? 0.01m : 1m;
+
+    protected override void OnParametersSet()
+    {
+        if (Node is JsonField && _jsonText is null)
+        {
+            _jsonText = State.Get(Pointer)?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? string.Empty;
+        }
+    }
+
+    private void SetString(string? value) =>
+        State.Set(Pointer, string.IsNullOrEmpty(value) ? null : JsonValue.Create(value));
+
+    private void SetNumber(decimal? value, NumberField number)
+    {
+        State.Set(Pointer, value is null ? null : number.IsInteger ? JsonValue.Create(decimal.Truncate(value.Value)) : JsonValue.Create(value.Value));
+    }
+
+    private void SetBool(bool value) => State.Set(Pointer, JsonValue.Create(value));
+
+    private void SetJson(string? text)
+    {
+        _jsonText = text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _jsonError = null;
+            State.Set(Pointer, null);
+            return;
+        }
+
+        try
+        {
+            State.Set(Pointer, JsonNode.Parse(text));
+            _jsonError = null;
+        }
+        catch (JsonException exception)
+        {
+            _jsonError = $"Not valid JSON: {exception.Message}";
+        }
+    }
+
+    private void OnChipKey(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            CommitChip();
+        }
+    }
+
+    private void CommitChip()
+    {
+        var text = _chipDraft.Trim();
+        if (text.Length > 0)
+        {
+            var array = State.Get(Pointer) as JsonArray ?? new JsonArray();
+            var numeric = Node is ChipsField { NumericItems: true };
+            if (numeric && !decimal.TryParse(text, out _))
+            {
+                return;
+            }
+
+            array.Add(numeric ? JsonValue.Create(decimal.Parse(text)) : JsonValue.Create(text));
+            State.Set(Pointer, array);
+            _chipDraft = string.Empty;
+        }
+
+        State.Validate();
+    }
+
+    private void RemoveChip(int index)
+    {
+        if (State.Get(Pointer) is JsonArray array && index < array.Count)
+        {
+            array.RemoveAt(index);
+            State.Set(Pointer, array.Count == 0 && !Node.Required ? null : array);
+            State.Validate();
+        }
+    }
+
+    private void AddItem(CardListField list)
+    {
+        var array = State.Get(Pointer) as JsonArray ?? new JsonArray();
+        array.Add(FormState.DefaultFor(list.Item));
+        State.Set(Pointer, array);
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (State.Get(Pointer) is JsonArray array && index < array.Count)
+        {
+            array.RemoveAt(index);
+            State.Set(Pointer, array);
+            State.Validate();
+        }
+    }
+
+    private void SelectVariant(OneOfField oneOf, int index)
+    {
+        if (index == _variant || index < 0 || index >= oneOf.Variants.Count)
+        {
+            return;
+        }
+
+        _variant = index;
+        State.Set(Pointer, FormState.DefaultFor(oneOf.Variants[index].Node));
+    }
+}

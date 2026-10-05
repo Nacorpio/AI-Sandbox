@@ -27,6 +27,7 @@ public sealed class ModelDefinition : AggregateRoot<ModelDefinitionId>
         OutputSchema = null!;
         Pricing = null!;
         Capabilities = null!;
+        UiHints = UiHints.Empty;
     }
 
     public ProviderId ProviderId { get; private set; }
@@ -42,6 +43,8 @@ public sealed class ModelDefinition : AggregateRoot<ModelDefinitionId>
     public JsonSchemaDocument InputSchema { get; private set; }
 
     public JsonSchemaDocument OutputSchema { get; private set; }
+
+    public UiHints UiHints { get; private set; }
 
     public PricingSchedule Pricing { get; private set; }
 
@@ -91,6 +94,31 @@ public sealed class ModelDefinition : AggregateRoot<ModelDefinitionId>
         };
         model.Raise(new ModelDefinitionCreated(model.Id, name, now));
         return model;
+    }
+
+    /// <summary>
+    /// Edits the fields a user may change after creation. The protocol and provider stay fixed,
+    /// because the model's invoker and credentials depend on them.
+    /// </summary>
+    public Result Update(
+        string? displayName,
+        RemoteModelId remoteId,
+        JsonSchemaDocument inputSchema,
+        JsonSchemaDocument outputSchema,
+        UiHints uiHints)
+    {
+        var name = displayName?.Trim();
+        if (string.IsNullOrEmpty(name) || name.Length > MaxDisplayNameLength)
+        {
+            return Result.Failure(Error.Validation("displayName", $"Display name is required and must be at most {MaxDisplayNameLength} characters."));
+        }
+
+        DisplayName = name;
+        RemoteId = remoteId;
+        InputSchema = inputSchema;
+        OutputSchema = outputSchema;
+        UiHints = uiHints;
+        return Result.Success();
     }
 }
 

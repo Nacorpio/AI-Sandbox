@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- WireMock.Net ships Humanizer 2.14.1 satellite packages while JsonPointer.Net (via JsonSchema.Net) needs
+         Humanizer.Core 3.x. Only localised resources differ, which nothing here uses. -->
+    <NoWarn>$(NoWarn);NU1608</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

@@ -24,6 +24,11 @@ internal sealed class ModelDefinitionConfiguration : IEntityTypeConfiguration<Mo
             .HasMaxLength(200);
         builder.Property(m => m.InputSchema).HasConversion(s => s.Json, json => new JsonSchemaDocument(json));
         builder.Property(m => m.OutputSchema).HasConversion(s => s.Json, json => new JsonSchemaDocument(json));
+        builder.Property(m => m.UiHints)
+            .HasConversion(h => h.ToJson(), json => UiHints.Parse(json).Value)
+            .HasMaxLength(20000)
+            .HasDefaultValue(UiHints.Empty)
+            .IsRequired();
         builder.Property(m => m.Pricing).HasJsonConversion();
         builder.Property(m => m.Capabilities).HasJsonConversion();
         builder.Property(m => m.Origin).HasJsonConversion();
