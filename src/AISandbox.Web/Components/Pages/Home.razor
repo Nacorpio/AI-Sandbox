@@ -1,0 +1,40 @@
+@page "/"
+
+<PageTitle>AI Sandbox</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">AI Sandbox</MudText>
+<MudText Typo="Typo.body1" Class="mud-text-secondary mb-6">
+    Configure chat and decision models, run them side by side against the same input, and compare
+    cost, latency and decisions.
+</MudText>
+
+<MudGrid>
+    @foreach (var step in _steps)
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Outlined="true" Class="h-100">
+                <MudCardContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@step.Icon" Color="Color.Primary" />
+                        <MudText Typo="Typo.h6">@step.Title</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Class="mt-2">@step.Text</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Href="@step.Href" Variant="Variant.Text" Color="Color.Primary">Open</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private sealed record Step(string Title, string Text, string Href, string Icon);
+
+    private readonly Step[] _steps =
+    [
+        new("1. Providers", "Register TypeSafe, Cloudflare or OpenRouter with your API key.", "providers", Icons.Material.Outlined.Hub),
+        new("2. Models", "Create models from templates such as Jev, Clef Flash or DeepSeek.", "models", Icons.Material.Outlined.Memory),
+        new("3. Runs", "Ask the same questions of several models and compare the answers.", "runs", Icons.Material.Outlined.PlayCircle),
+    ];
+}

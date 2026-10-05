@@ -1,0 +1,35 @@
+@using AISandbox.Domain.Catalog.Providers
+
+@if (Auth == AuthSchemeKind.None)
+{
+    <MudText Typo="Typo.body2" Class="mud-text-secondary">Not required</MudText>
+}
+else
+{
+    switch (Status.Source)
+    {
+        case SecretSource.Stored:
+            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Lock" Color="Color.Success" Variant="Variant.Outlined">
+                Stored @Status.MaskedHint
+            </MudChip>
+            break;
+        case SecretSource.Environment:
+            <MudTooltip Text="Read from an environment variable; it overrides any stored key.">
+                <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Terminal" Color="Color.Info" Variant="Variant.Outlined">
+                    Environment @Status.MaskedHint
+                </MudChip>
+            </MudTooltip>
+            break;
+        default:
+            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Warning" Color="Color.Warning" Variant="Variant.Outlined">
+                Missing
+            </MudChip>
+            break;
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public SecretStatus Status { get; set; } = default!;
+
+    [Parameter] public AuthSchemeKind Auth { get; set; }
+}

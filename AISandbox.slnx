@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AISandbox.Application/AISandbox.Application.csproj" />
+    <Project Path="src/AISandbox.Domain/AISandbox.Domain.csproj" />
+    <Project Path="src/AISandbox.Infrastructure/AISandbox.Infrastructure.csproj" />
+    <Project Path="src/AISandbox.Web/AISandbox.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AISandbox.Application.Tests/AISandbox.Application.Tests.csproj" />
+    <Project Path="tests/AISandbox.Architecture.Tests/AISandbox.Architecture.Tests.csproj" />
+  </Folder>
+</Solution>

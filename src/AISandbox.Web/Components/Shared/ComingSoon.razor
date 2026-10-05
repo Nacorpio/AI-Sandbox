@@ -1,0 +1,18 @@
+<PageTitle>@Title · AI Sandbox</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">@Title</MudText>
+<MudPaper Outlined="true" Class="pa-8 d-flex flex-column align-center">
+    <MudIcon Icon="@Icon" Size="Size.Large" Color="Color.Secondary" />
+    <MudText Typo="Typo.body1" Class="mt-3">@Description</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">Planned in @Ticket.</MudText>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public string Description { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public string Ticket { get; set; } = string.Empty;
+
+    [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.Construction;
+}
