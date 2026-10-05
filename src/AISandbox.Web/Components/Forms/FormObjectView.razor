@@ -1,0 +1,83 @@
+@using AISandbox.Application.Forms
+@* An object: required fields first, optional fields behind "More options", grouped by hint. *@
+
+@if (IsRoot)
+{
+    <MudStack Spacing="3">
+        @Body
+    </MudStack>
+}
+else if (Node.Collapsible)
+{
+    <MudTooltip Text="@Node.Help" Disabled="@(Node.Help is null)" Placement="Placement.Top">
+        <MudButton Variant="Variant.Text" Size="Size.Small" EndIcon="@(_open ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                   OnClick="() => _open = !_open">@Node.Label</MudButton>
+    </MudTooltip>
+    <MudCollapse Expanded="_open">
+        <MudPaper Outlined="true" Class="pa-3 mt-1"><MudStack Spacing="3">@Body</MudStack></MudPaper>
+    </MudCollapse>
+}
+else
+{
+    <fieldset class="schema-fieldset">
+        <legend><MudText Typo="Typo.subtitle2">@Node.Label</MudText></legend>
+        <MudStack Spacing="3">@Body</MudStack>
+    </fieldset>
+}
+
+@code {
+    [Parameter, EditorRequired] public ObjectField Node { get; set; } = default!;
+
+    [Parameter, EditorRequired] public string Pointer { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public FormState State { get; set; } = default!;
+
+    [Parameter] public bool IsRoot { get; set; }
+
+    private bool _open;
+    private bool _moreOpen;
+
+    private RenderFragment Body => __builder =>
+    {
+        var required = Node.Children.Where(c => c.Required).ToList();
+        var optional = Node.Children.Where(c => !c.Required).ToList();
+
+        @RenderGroups(required)
+        @if (optional.Count > 0)
+        {
+            <div data-more-options>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Class="align-self-start"
+                           EndIcon="@(_moreOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                           OnClick="() => _moreOpen = !_moreOpen">More options (@optional.Count)</MudButton>
+                <MudCollapse Expanded="_moreOpen"><MudStack Spacing="3" Class="mt-2">@RenderGroups(optional)</MudStack></MudCollapse>
+            </div>
+        }
+    };
+
+    private RenderFragment RenderGroups(IReadOnlyList<FormNode> nodes) => __builder =>
+    {
+        // Ungrouped fields keep their place; each named group becomes one labelled block.
+        foreach (var group in nodes.GroupBy(n => n.Group).OrderBy(g => g.Key is null ? 0 : 1))
+        {
+            if (group.Key is null)
+            {
+                foreach (var child in group)
+                {
+                    <FormNodeView Node="child" Pointer="@FormState.Child(Pointer, child.Key)" State="State" />
+                }
+            }
+            else
+            {
+                <div data-group="@group.Key">
+                    <MudText Typo="Typo.overline" Class="mud-text-secondary">@group.Key</MudText>
+                    <MudStack Spacing="3">
+                        @foreach (var child in group)
+                        {
+                            <FormNodeView Node="child" Pointer="@FormState.Child(Pointer, child.Key)" State="State" />
+                        }
+                    </MudStack>
+                </div>
+            }
+        }
+    };
+}

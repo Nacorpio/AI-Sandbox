@@ -1,0 +1,18 @@
+@* A monospace JSON editor that reports its validation issue as you type. *@
+<MudTextField T="string" Value="Value" ValueChanged="ValueChanged" Label="@Label" Variant="Variant.Outlined" Immediate="true"
+              Lines="@Lines" Class="font-monospace" Error="@(Issue is not null)" ErrorText="@Issue"
+              HelperText="@(Issue is null ? (Help ?? "Valid") : null)" spellcheck="false" />
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    [Parameter] public string Value { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter] public string? Issue { get; set; }
+
+    [Parameter] public string? Help { get; set; }
+
+    [Parameter] public int Lines { get; set; } = 16;
+}

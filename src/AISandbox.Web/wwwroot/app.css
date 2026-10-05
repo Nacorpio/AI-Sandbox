@@ -131,3 +131,20 @@ h1:focus {
 .json-string { color: var(--mud-palette-success); white-space: pre-wrap; }
 .json-number { color: var(--mud-palette-info); }
 .json-literal { color: var(--mud-palette-warning); }
+
+/* Schema-driven forms: fields fill the dialog; objects read as one quiet group. */
+.schema-field,
+.schema-field .mud-input-control {
+    width: 100%;
+}
+
+.schema-fieldset {
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--mud-default-borderradius);
+    padding: 0.75rem 1rem 1rem;
+}
+
+.schema-field .mud-tooltip-root {
+    display: block;
+    width: 100%;
+}

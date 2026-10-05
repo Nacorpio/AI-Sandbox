@@ -21,3 +21,5 @@ The ubiquitous language of AI Sandbox. Use these terms, with these meanings, in 
 | **Comparison** | The side-by-side view of a run's executions. |
 | **Pipeline** | A directed acyclic graph of model nodes joined by mapped, optionally conditional edges. |
 | **Secret reference** | A pointer to a credential in the secret store. Aggregates hold references, never keys. |
+| **UI hints** | An optional overlay on a model's schemas that sets label, help, group, order and widget per field. Closed vocabulary: a hint may only name a widget the form renderer knows. |
+| **Schema form** | The generic dialog that renders any JSON Schema plus UI hints. Required fields first, optional ones behind "More options", unknown shapes as a JSON editor. |

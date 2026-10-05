@@ -8,5 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/AISandbox.Application.Tests/AISandbox.Application.Tests.csproj" />
     <Project Path="tests/AISandbox.Architecture.Tests/AISandbox.Architecture.Tests.csproj" />
+    <Project Path="tests/AISandbox.Web.Tests/AISandbox.Web.Tests.csproj" />
   </Folder>
 </Solution>

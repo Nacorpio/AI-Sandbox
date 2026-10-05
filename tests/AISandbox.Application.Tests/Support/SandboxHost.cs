@@ -66,6 +66,10 @@ public sealed class SandboxHost : IAsyncDisposable
         return new SandboxHost(keepAlive, services, workers);
     }
 
+    /// <summary>Resolves a stateless service, such as the schema validator, without a scope.</summary>
+    public T Service<T>()
+        where T : notnull => _services.GetRequiredService<T>();
+
     public async Task<Result<TResult>> SendAsync<TCommand, TResult>(TCommand command)
     {
         await using var scope = _services.CreateAsyncScope();

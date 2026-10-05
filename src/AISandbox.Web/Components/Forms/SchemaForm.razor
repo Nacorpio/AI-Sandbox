@@ -1,0 +1,118 @@
+@using System.Text.Json.Nodes
+@using AISandbox.Application.Forms
+@using AISandbox.Domain.Catalog.Models
+@implements IDisposable
+@inject IFormModelBuilder Builder
+@inject ISchemaValidator Validator
+@* A generic dialog body: renders any JSON Schema plus UI hints and keeps the value as JSON. *@
+
+@if (_buildError is not null)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true">@_buildError</MudAlert>
+}
+else if (_model is not null)
+{
+    <MudStack Spacing="3" Class="schema-form">
+        <FormNodeView Node="_model.Root" Pointer="" State="_state" />
+
+        @foreach (var issue in _state.IssuesAt(string.Empty))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" data-form-issue>@issue.Message</MudAlert>
+        }
+
+        @if (ShowSubmit)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="align-self-start" OnClick="SubmitAsync">@SubmitText</MudButton>
+        }
+    </MudStack>
+}
+
+@code {
+    [Parameter, EditorRequired] public JsonSchemaDocument Schema { get; set; } = JsonSchemaDocument.Empty;
+
+    [Parameter] public UiHints Hints { get; set; } = UiHints.Empty;
+
+    /// <summary>The edited value as JSON text.</summary>
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>Raised with the JSON text when the user submits a value that passes validation.</summary>
+    [Parameter] public EventCallback<string> OnSubmit { get; set; }
+
+    [Parameter] public bool ShowSubmit { get; set; }
+
+    [Parameter] public string SubmitText { get; set; } = "Submit";
+
+    private FormState _state = default!;
+    private FormModel? _model;
+    private string? _buildError;
+    private JsonSchemaDocument? _builtFor;
+    private string? _builtHints;
+
+    protected override void OnInitialized()
+    {
+        _state = new FormState(json => Validator.Validate(Schema, json).Issues);
+        _state.Changed += OnStateChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Rebuild only when the schema or hints really changed: a parent re-render must not wipe what the user typed.
+        var hintsJson = Hints.ToJson();
+        if (_builtFor == Schema && _builtHints == hintsJson)
+        {
+            return;
+        }
+
+        _builtFor = Schema;
+        _builtHints = hintsJson;
+        var built = Builder.Build(Schema, Hints);
+        _model = built.IsSuccess ? built.Value : null;
+        _buildError = built.IsSuccess ? null : built.Error!.Message;
+        _state.Load(ParseValue(Value, _model));
+    }
+
+    private static JsonNode? ParseValue(string? value, FormModel? model)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            try
+            {
+                return JsonNode.Parse(value);
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // fall through to the default value
+            }
+        }
+
+        return model is null ? null : FormState.DefaultFor(model.Root);
+    }
+
+    private void OnStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await ValueChanged.InvokeAsync(_state.ToJson());
+            StateHasChanged();
+        });
+    }
+
+    private async Task SubmitAsync()
+    {
+        _state.Validate();
+        if (_state.IsValid)
+        {
+            await OnSubmit.InvokeAsync(_state.ToJson());
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_state is not null)
+        {
+            _state.Changed -= OnStateChanged;
+        }
+    }
+}

@@ -49,6 +49,9 @@ internal sealed class ModelDefinitionRepository(AppDbContext db) : IModelDefinit
 {
     public void Add(ModelDefinition model) => db.ModelDefinitions.Add(model);
 
+    public Task<ModelDefinition?> GetAsync(ModelDefinitionId id, CancellationToken cancellationToken) =>
+        db.ModelDefinitions.FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
+
     public async Task<IReadOnlyList<ModelDefinition>> GetManyAsync(
         IReadOnlyCollection<ModelDefinitionId> ids,
         CancellationToken cancellationToken) =>
@@ -77,6 +80,31 @@ internal sealed class ModelQueries(AppDbContext db) : IModelQueries
                 r.Model.Capabilities,
                 r.Model.Origin))
             .ToList();
+    }
+}
+
+internal sealed class ModelDetailsQueries(AppDbContext db) : IModelDetailsQueries
+{
+    public async Task<ModelDetails?> GetAsync(ModelDefinitionId id, CancellationToken cancellationToken)
+    {
+        var row = await db.ModelDefinitions.AsNoTracking()
+            .Where(m => m.Id == id)
+            .Join(db.Providers.AsNoTracking(), m => m.ProviderId, p => p.Id, (m, p) => new { Model = m, ProviderName = p.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return row is null
+            ? null
+            : new ModelDetails(
+                row.Model.Id,
+                row.Model.DisplayName,
+                row.Model.Kind,
+                row.Model.Protocol.Value,
+                row.Model.RemoteId.Value,
+                row.ProviderName,
+                row.Model.InputSchema.Json,
+                row.Model.OutputSchema.Json,
+                row.Model.UiHints.ToJson(),
+                row.Model.Origin);
     }
 }
 

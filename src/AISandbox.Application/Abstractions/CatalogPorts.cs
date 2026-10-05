@@ -42,5 +42,7 @@ public interface IModelDefinitionRepository
 {
     void Add(ModelDefinition model);
 
+    Task<ModelDefinition?> GetAsync(ModelDefinitionId id, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<ModelDefinition>> GetManyAsync(IReadOnlyCollection<ModelDefinitionId> ids, CancellationToken cancellationToken);
 }

@@ -10,6 +10,7 @@ using AISandbox.Infrastructure.Protocols;
 using AISandbox.Infrastructure.Protocols.Chat;
 using AISandbox.Infrastructure.Protocols.SystemOne;
 using AISandbox.Infrastructure.Runs;
+using AISandbox.Infrastructure.Schemas;
 using AISandbox.Infrastructure.Secrets;
 using AISandbox.Infrastructure.Templates;
 using Microsoft.AspNetCore.DataProtection;
@@ -47,6 +48,9 @@ public static class DependencyInjection
         services.AddScoped<IQuestionSetRepository, QuestionSetRepository>();
         services.AddScoped<IQuestionSetQueries, QuestionSetQueries>();
         services.AddScoped<IPromptTemplateRepository, PromptTemplateRepository>();
+        services.AddScoped<IModelDetailsQueries, ModelDetailsQueries>();
+        services.AddSingleton<ISchemaValidator, JsonSchemaValidator>();
+        services.AddSingleton<IFormModelBuilder, FormModelBuilder>();
         services.AddScoped<IRunRepository, RunRepository>();
         services.AddScoped<IRunQueries, RunQueries>();
 

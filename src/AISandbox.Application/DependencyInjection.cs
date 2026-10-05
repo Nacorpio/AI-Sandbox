@@ -29,6 +29,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<ListTemplates, IReadOnlyList<TemplateSummary>>, ListTemplatesHandler>();
         services.AddScoped<ICommandHandler<CreateModelFromTemplate, ModelDefinitionId>, CreateModelFromTemplateHandler>();
         services.AddScoped<IQueryHandler<ListModels, IReadOnlyList<ModelSummary>>, ListModelsHandler>();
+        services.AddScoped<IQueryHandler<GetModelDefinition, ModelDetails?>, GetModelDefinitionHandler>();
+        services.AddScoped<ICommandHandler<UpdateModelDefinition, ModelDefinitionId>, UpdateModelDefinitionHandler>();
 
         services.AddScoped<ICommandHandler<CreateQuestionSet, QuestionSetId>, CreateQuestionSetHandler>();
         services.AddScoped<ICommandHandler<UpdateQuestionSet, QuestionSetRef>, UpdateQuestionSetHandler>();

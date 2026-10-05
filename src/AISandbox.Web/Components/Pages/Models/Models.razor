@@ -36,6 +36,7 @@ else
             <MudTh>Provider</MudTh>
             <MudTh>Remote id</MudTh>
             <MudTh>Price / M tokens</MudTh>
+            <MudTh></MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Name">@context.DisplayName</MudTd>
@@ -46,6 +47,9 @@ else
             <MudTd DataLabel="Provider">@context.ProviderName</MudTd>
             <MudTd DataLabel="Remote id"><code>@context.RemoteId</code></MudTd>
             <MudTd DataLabel="Price / M tokens"><PriceLabel Pricing="context.Pricing" /></MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Href="@($"models/{context.Id}")" aria-label="@($"Edit {context.DisplayName}")" />
+            </MudTd>
         </RowTemplate>
     </MudTable>
 }
