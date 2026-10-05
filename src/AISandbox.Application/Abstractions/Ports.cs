@@ -1,3 +1,4 @@
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Catalog.Providers;
 
 namespace AISandbox.Application.Abstractions;
@@ -37,4 +38,11 @@ public interface ISecretStore
     Task<string?> GetAsync(SecretReference reference, CancellationToken cancellationToken);
 
     Task<SecretStatus> DescribeAsync(SecretReference reference, CancellationToken cancellationToken);
+}
+
+public interface IQuestionSetRepository
+{
+    void Add(QuestionSet questionSet);
+
+    Task<QuestionSet?> GetAsync(QuestionSetId id, CancellationToken cancellationToken);
 }

@@ -2,7 +2,7 @@ using System.Diagnostics;
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Telemetry;
 using AISandbox.Domain.Abstractions;
-using AISandbox.Domain.Authoring.Questions;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Catalog.Providers;
 using AISandbox.Domain.Experimentation;
@@ -10,7 +10,13 @@ using AISandbox.Domain.Experimentation;
 namespace AISandbox.Application.Features.Runs;
 
 /// <param name="State">The content to evaluate. Text, or JSON when it starts with '{' or '['.</param>
-public sealed record StartRun(string? State, IReadOnlyList<QuestionInput> Questions, IReadOnlyList<ModelDefinitionId> ModelIds);
+/// <param name="Questions">Inline questions. Ignored when a saved set is given.</param>
+/// <param name="QuestionSetId">A saved question set; its current version is used and pinned on the run.</param>
+public sealed record StartRun(
+    string? State,
+    IReadOnlyList<QuestionInput> Questions,
+    IReadOnlyList<ModelDefinitionId> ModelIds,
+    QuestionSetId? QuestionSetId = null);
 
 /// <summary>
 /// Starts a run and executes every selected model. Provider failures are recorded on the run, so
@@ -20,6 +26,7 @@ public sealed class StartRunHandler(
     IModelDefinitionRepository models,
     IProviderRepository providers,
     IRunRepository runs,
+    IQuestionSetRepository questionSets,
     ISecretStore secrets,
     IModelInvokerResolver invokers,
     IUnitOfWork unitOfWork,
@@ -28,7 +35,7 @@ public sealed class StartRunHandler(
 {
     public async Task<Result<RunId>> HandleAsync(StartRun command, CancellationToken cancellationToken)
     {
-        var input = BuildInput(command);
+        var input = await BuildInputAsync(command, cancellationToken);
         if (input.IsFailure)
         {
             return input.Error!;
@@ -67,7 +74,7 @@ public sealed class StartRunHandler(
         return run.Value.Id;
     }
 
-    private static Result<RunInput> BuildInput(StartRun command)
+    private async Task<Result<RunInput>> BuildInputAsync(StartRun command, CancellationToken cancellationToken)
     {
         var state = QuestionInputMapper.ToStructured(command.State, "state");
         if (state.IsFailure)
@@ -75,19 +82,16 @@ public sealed class StartRunHandler(
             return Error.Validation("state", string.IsNullOrWhiteSpace(command.State) ? "State is required." : state.Error!.Message);
         }
 
-        var questions = new List<Question>();
-        foreach (var questionInput in command.Questions)
+        if (command.QuestionSetId is { } setId)
         {
-            var question = QuestionInputMapper.ToQuestion(questionInput);
-            if (question.IsFailure)
-            {
-                return question.Error!;
-            }
-
-            questions.Add(question.Value);
+            var set = await questionSets.GetAsync(setId, cancellationToken);
+            return set is null
+                ? Error.NotFound("Question set")
+                : RunInput.Create(state.Value, set.Questions, set.Ref);
         }
 
-        return RunInput.Create(state.Value, questions);
+        var questions = QuestionInputMapper.ToQuestions(command.Questions);
+        return questions.IsFailure ? questions.Error! : RunInput.Create(state.Value, questions.Value);
     }
 
     private async Task ExecuteAsync(Run run, ExecutionId executionId, ModelDefinition model, CancellationToken cancellationToken)

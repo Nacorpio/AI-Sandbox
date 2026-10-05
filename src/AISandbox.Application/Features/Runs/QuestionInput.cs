@@ -34,6 +34,40 @@ internal static class QuestionInputMapper
             ? Result<StructuredText?>.Success(null)
             : ToStructured(text, field).Map<StructuredText?>(s => s);
 
+    /// <summary>
+    /// The inverse of <see cref="ToQuestion"/>: a question as the editor shows it.
+    /// </summary>
+    public static QuestionInput ToInput(Question question) => question switch
+    {
+        ChoiceQuestion c => new QuestionInput(
+            QuestionType.Choice, c.Key.Value, c.Instructions.Display,
+            Options: c.Options.Select(o => new OptionInput(o.Name, o.Description?.Display)).ToList()),
+        ScoreQuestion s => new QuestionInput(
+            QuestionType.Score, s.Key.Value, s.Instructions.Display,
+            Levels: s.Levels.Select(l => (string?)l.Display).ToList()),
+        NoulQuestion n => new QuestionInput(
+            QuestionType.Noul, n.Key.Value, n.Instructions.Display,
+            WhenTrue: n.WhenTrue?.Display, WhenFalse: n.WhenFalse?.Display),
+        _ => throw new ArgumentOutOfRangeException(nameof(question)),
+    };
+
+    public static Result<IReadOnlyList<Question>> ToQuestions(IReadOnlyList<QuestionInput>? inputs)
+    {
+        var questions = new List<Question>();
+        foreach (var input in inputs ?? [])
+        {
+            var question = ToQuestion(input);
+            if (question.IsFailure)
+            {
+                return question.Error!;
+            }
+
+            questions.Add(question.Value);
+        }
+
+        return Result<IReadOnlyList<Question>>.Success(questions);
+    }
+
     public static Result<Question> ToQuestion(QuestionInput input)
     {
         var key = QuestionKey.Create(input.Key?.Trim());

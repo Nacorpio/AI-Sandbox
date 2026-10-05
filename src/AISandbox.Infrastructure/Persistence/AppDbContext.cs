@@ -1,4 +1,5 @@
 using AISandbox.Application.Abstractions;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Catalog.Providers;
 using AISandbox.Domain.Experimentation;
@@ -12,6 +13,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Provider> Providers => Set<Provider>();
 
     public DbSet<ModelDefinition> ModelDefinitions => Set<ModelDefinition>();
+
+    public DbSet<QuestionSet> QuestionSets => Set<QuestionSet>();
 
     public DbSet<Run> Runs => Set<Run>();
 

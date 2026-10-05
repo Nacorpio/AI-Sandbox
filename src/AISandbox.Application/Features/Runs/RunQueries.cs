@@ -1,5 +1,6 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Domain.Abstractions;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Experimentation;
 
 namespace AISandbox.Application.Features.Runs;
@@ -30,7 +31,8 @@ public sealed record RunView(
     RunStatus Status,
     string State,
     IReadOnlyList<QuestionView> Questions,
-    IReadOnlyList<ExecutionView> Executions);
+    IReadOnlyList<ExecutionView> Executions,
+    QuestionSetRef? QuestionSet = null);
 
 public sealed class GetRunHandler(IRunRepository runs) : IQueryHandler<GetRun, RunView?>
 {
@@ -60,7 +62,8 @@ public sealed class GetRunHandler(IRunRepository runs) : IQueryHandler<GetRun, R
             e.ResolvedModel,
             e.Error,
             e.RawRequest,
-            e.RawResponse)).ToList());
+            e.RawResponse)).ToList(),
+        run.Input.QuestionSet);
 }
 
 public sealed record ListRuns(int Limit = 50);

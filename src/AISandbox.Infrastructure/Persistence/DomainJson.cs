@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Authoring.Questions;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Experimentation;
@@ -123,18 +124,25 @@ internal static class DomainJson
         }
     }
 
-    private sealed record RunInputDocument(StructuredText State, IReadOnlyList<Question> Questions);
+    private sealed record QuestionSetRefDocument(Guid Id, int Version);
+
+    private sealed record RunInputDocument(StructuredText State, IReadOnlyList<Question> Questions, QuestionSetRefDocument? QuestionSet = null);
 
     private sealed class RunInputConverter : JsonConverter<RunInput>
     {
         public override RunInput Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var document = JsonSerializer.Deserialize<RunInputDocument>(ref reader, options)!;
-            return RunInput.Create(document.State, document.Questions).Value;
+            var reference = document.QuestionSet is { } r ? new QuestionSetRef(new QuestionSetId(r.Id), r.Version) : null;
+            return RunInput.Create(document.State, document.Questions, reference).Value;
         }
 
         public override void Write(Utf8JsonWriter writer, RunInput value, JsonSerializerOptions options) =>
-            JsonSerializer.Serialize(writer, new RunInputDocument(value.State, value.Questions), options);
+            JsonSerializer.Serialize(writer, new RunInputDocument(
+                value.State,
+                value.Questions,
+                value.QuestionSet is { } r ? new QuestionSetRefDocument(r.Id.Value, r.Version) : null),
+                options);
     }
 
     private sealed record PricingDocument(string Currency, decimal InputPerMillion, decimal OutputPerMillion, decimal? CacheReadPerMillion);

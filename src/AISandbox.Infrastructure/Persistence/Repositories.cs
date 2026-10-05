@@ -1,8 +1,10 @@
 using AISandbox.Application.Abstractions;
 using AISandbox.Application.Features.Models;
 using AISandbox.Application.Features.Providers;
+using AISandbox.Application.Features.QuestionSets;
 using AISandbox.Application.Features.Runs;
 using AISandbox.Domain.Abstractions;
+using AISandbox.Domain.Authoring.QuestionSets;
 using AISandbox.Domain.Catalog.Models;
 using AISandbox.Domain.Catalog.Providers;
 using AISandbox.Domain.Experimentation;
@@ -101,5 +103,25 @@ internal sealed class RunQueries(AppDbContext db) : IRunQueries
                 r.Executions.Select(e => e.Model.DisplayName).ToList(),
                 total);
         }).ToList();
+    }
+}
+
+internal sealed class QuestionSetRepository(AppDbContext db) : IQuestionSetRepository
+{
+    public void Add(QuestionSet questionSet) => db.QuestionSets.Add(questionSet);
+
+    public Task<QuestionSet?> GetAsync(QuestionSetId id, CancellationToken cancellationToken) =>
+        db.QuestionSets.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+}
+
+internal sealed class QuestionSetQueries(AppDbContext db) : IQuestionSetQueries
+{
+    public async Task<IReadOnlyList<QuestionSetSummary>> ListAsync(CancellationToken cancellationToken)
+    {
+        var sets = await db.QuestionSets.AsNoTracking().ToListAsync(cancellationToken);
+        return sets
+            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(s => new QuestionSetSummary(s.Id, s.Name, s.Version, s.Questions.Count, s.UpdatedAt))
+            .ToList();
     }
 }

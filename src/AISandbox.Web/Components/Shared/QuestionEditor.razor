@@ -11,6 +11,11 @@
             <MudSpacer />
             <MudTextField @bind-Value="Draft.Key" Label="Key" Variant="Variant.Outlined" Margin="Margin.Dense"
                           Style="max-width: 16rem" HelperText="Letters, digits, _ . -" />
+            @if (OnMoveUp.HasDelegate)
+            {
+                <MudIconButton Icon="@Icons.Material.Outlined.ArrowUpward" Size="Size.Small" Disabled="@(!CanMoveUp)" OnClick="OnMoveUp" aria-label="Move question up" />
+                <MudIconButton Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" Disabled="@(!CanMoveDown)" OnClick="OnMoveDown" aria-label="Move question down" />
+            }
             <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="OnRemove" aria-label="Remove question" />
         </MudStack>
 
@@ -68,6 +73,15 @@
     [Parameter, EditorRequired] public QuestionDraft Draft { get; set; } = default!;
 
     [Parameter] public EventCallback OnRemove { get; set; }
+
+    /// <summary>Reorder buttons show only when a move callback is given.</summary>
+    [Parameter] public EventCallback OnMoveUp { get; set; }
+
+    [Parameter] public EventCallback OnMoveDown { get; set; }
+
+    [Parameter] public bool CanMoveUp { get; set; } = true;
+
+    [Parameter] public bool CanMoveDown { get; set; } = true;
 
     private string InstructionLabel => Draft.Type switch
     {

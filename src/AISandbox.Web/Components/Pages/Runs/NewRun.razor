@@ -1,6 +1,8 @@
 @page "/runs/new"
 @using AISandbox.Application.Features.Models
+@using AISandbox.Application.Features.QuestionSets
 @using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Authoring.QuestionSets
 @using AISandbox.Domain.Catalog.Models
 @using AISandbox.Domain.Experimentation
 @inject UseCases UseCases
@@ -29,12 +31,33 @@
 
     case 1:
         <MudStack Spacing="3">
-            @foreach (var question in _questions)
+            @if (_sets is { Count: > 0 })
             {
-                <QuestionEditor Draft="question" OnRemove="() => _questions.Remove(question)" />
+                <MudToggleGroup T="bool" @bind-Value="_useSet" Color="Color.Primary" Size="Size.Small" CheckMark="false" Outlined="true" Class="align-self-start">
+                    <MudToggleItem Value="true" Text="Saved set" />
+                    <MudToggleItem Value="false" Text="Quick questions" />
+                </MudToggleGroup>
             }
-            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _questions.Add(new())" Class="align-self-start"
-                       Disabled="@(_questions.Count >= RunInput.MaxQuestions)">Add question</MudButton>
+
+            @if (_useSet && _sets is { Count: > 0 })
+            {
+                <MudSelect T="QuestionSetId?" @bind-Value="_setId" Label="Question set" Variant="Variant.Outlined"
+                           HelperText="The set's current version is used and recorded on the run.">
+                    @foreach (var set in _sets)
+                    {
+                        <MudSelectItem T="QuestionSetId?" Value="set.Id">@($"{set.Name} · v{set.Version} · {set.QuestionCount} questions")</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            else
+            {
+                @foreach (var question in _questions)
+                {
+                    <QuestionEditor Draft="question" OnRemove="() => _questions.Remove(question)" />
+                }
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _questions.Add(new())" Class="align-self-start"
+                           Disabled="@(_questions.Count >= RunInput.MaxQuestions)">Add question</MudButton>
+            }
         </MudStack>
         break;
 
@@ -94,6 +117,9 @@
     private string? _state;
     private readonly List<QuestionDraft> _questions = [new()];
     private IReadOnlyList<ModelSummary>? _models;
+    private IReadOnlyList<QuestionSetSummary>? _sets;
+    private bool _useSet;
+    private QuestionSetId? _setId;
     private ModelDefinitionId? _modelId;
     private string? _error;
     private bool _running;
@@ -104,6 +130,12 @@
     {
         _models = await UseCases.QueryAsync<ListModels, IReadOnlyList<ModelSummary>>(new ListModels());
         _modelId = DecisionModels.FirstOrDefault()?.Id;
+        _sets = await UseCases.QueryAsync<ListQuestionSets, IReadOnlyList<QuestionSetSummary>>(new ListQuestionSets());
+        if (_sets.Count > 0)
+        {
+            _useSet = true;
+            _setId = _sets[0].Id;
+        }
     }
 
     private async Task RunAsync()
@@ -111,7 +143,11 @@
         _running = true;
         _error = null;
         var result = await UseCases.SendAsync<StartRun, RunId>(
-            new StartRun(_state, _questions.Select(q => q.ToInput()).ToList(), [_modelId!.Value]));
+            new StartRun(
+                _state,
+                _useSet ? [] : _questions.Select(q => q.ToInput()).ToList(),
+                [_modelId!.Value],
+                _useSet ? _setId : null));
         _running = false;
 
         if (result.IsSuccess)
