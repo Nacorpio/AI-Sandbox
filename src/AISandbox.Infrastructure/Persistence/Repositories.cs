@@ -16,6 +16,8 @@ internal sealed class ProviderRepository(AppDbContext db) : IProviderRepository
 {
     public void Add(Provider provider) => db.Providers.Add(provider);
 
+    public void Remove(Provider provider) => db.Providers.Remove(provider);
+
     public Task<Provider?> GetAsync(ProviderId id, CancellationToken cancellationToken) =>
         db.Providers.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 }
@@ -29,9 +31,16 @@ internal sealed class ProviderQueries(AppDbContext db) : IProviderQueries
             .ToListAsync(cancellationToken);
 
         return providers
-            .Select(p => new ProviderRow(p.Id, p.Name, p.Kind, p.BaseUrl.ToString(), p.Auth.Kind, p.Secret, p.PathVariables))
+            .Select(p => new ProviderRow(p.Id, p.Name, p.Kind, p.BaseUrl.ToString(), p.Auth.Kind, p.Secret, p.PathVariables,
+                RateLimitSettings.From(p.RateLimit), p.Auth.HeaderName))
             .ToList();
     }
+
+    public async Task<RateLimitPolicy?> GetRateLimitAsync(ProviderId id, CancellationToken cancellationToken) =>
+        (await db.Providers.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken))?.RateLimit;
+
+    public Task<int> CountModelsAsync(ProviderId id, CancellationToken cancellationToken) =>
+        db.ModelDefinitions.CountAsync(m => m.ProviderId == id, cancellationToken);
 }
 
 internal sealed class ModelDefinitionRepository(AppDbContext db) : IModelDefinitionRepository

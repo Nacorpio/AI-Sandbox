@@ -25,6 +25,7 @@ internal sealed class ProviderConfiguration : IEntityTypeConfiguration<Provider>
             secret.Property(s => s.EnvironmentVariable).HasColumnName("SecretEnvironmentVariable").HasMaxLength(200);
         });
         builder.Property(p => p.PathVariables).HasJsonConversion().HasMaxLength(2000).HasDefaultValueSql("'{}'");
+        builder.Property(p => p.RateLimit).HasJsonConversion().HasMaxLength(500);
         builder.Property(p => p.CreatedAt);
         builder.Ignore(p => p.DomainEvents);
     }

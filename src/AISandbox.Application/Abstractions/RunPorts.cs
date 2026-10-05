@@ -44,6 +44,11 @@ public interface IProviderLimiter
     /// Waits for a free slot on the provider. Dispose the result to give the slot back.
     /// </summary>
     ValueTask<IDisposable> AcquireAsync(ProviderId providerId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Forgets what is known about the provider's limits so the next call reads its current policy.
+    /// </summary>
+    void Invalidate(ProviderId providerId);
 }
 
 /// <summary>

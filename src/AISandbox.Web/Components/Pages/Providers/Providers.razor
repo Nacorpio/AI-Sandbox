@@ -1,5 +1,6 @@
 @page "/providers"
 @using AISandbox.Application.Features.Providers
+@using AISandbox.Domain.Catalog.Providers
 @inject UseCases UseCases
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
@@ -34,6 +35,8 @@ else
             <MudTh>Kind</MudTh>
             <MudTh>Base URL</MudTh>
             <MudTh>API key</MudTh>
+            <MudTh>Limit</MudTh>
+            <MudTh></MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Name">@context.Name</MudTd>
@@ -42,12 +45,96 @@ else
             <MudTd DataLabel="API key">
                 <KeyStatusChip Status="context.Key" Auth="context.Auth" />
             </MudTd>
+            <MudTd DataLabel="Limit">@LimitText(context)</MudTd>
+            <MudTd Style="white-space: nowrap; text-align: right;">
+                @if (_testing.Contains(context.Id))
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                }
+                else if (_results.TryGetValue(context.Id, out var test))
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             Color="@(test.Succeeded ? Color.Success : Color.Error)"
+                             Icon="@(test.Succeeded ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.ErrorOutline)">
+                        @test.Message
+                    </MudChip>
+                }
+                <MudTooltip Text="Test connection">
+                    <MudIconButton Icon="@Icons.Material.Outlined.NetworkCheck" Size="Size.Small"
+                                   Disabled="@_testing.Contains(context.Id)" OnClick="() => TestAsync(context)" />
+                </MudTooltip>
+                <MudTooltip Text="Edit">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" OnClick="() => EditAsync(context)" />
+                </MudTooltip>
+                <MudTooltip Text="Delete">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="() => DeleteAsync(context)" />
+                </MudTooltip>
+            </MudTd>
         </RowTemplate>
     </MudTable>
 }
 
 @code {
     private IReadOnlyList<ProviderSummary>? _providers;
+    private readonly HashSet<ProviderId> _testing = [];
+    private readonly Dictionary<ProviderId, ConnectionTestResult> _results = [];
+
+    private static string LimitText(ProviderSummary provider) => provider.RateLimit is { } limit
+        ? string.Join(", ", new[] { $"{limit.MaxConcurrency} concurrent", limit.RequestsPerSecond is { } r ? $"{r:0.##}/s" : null }.OfType<string>())
+        : "Default";
+
+    private async Task TestAsync(ProviderSummary provider)
+    {
+        _testing.Add(provider.Id);
+        _results.Remove(provider.Id);
+        var result = await UseCases.SendAsync<TestProviderConnection, ConnectionTestResult>(new TestProviderConnection(provider.Id));
+        _testing.Remove(provider.Id);
+        if (result.IsSuccess)
+        {
+            _results[provider.Id] = result.Value;
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
+
+    private async Task EditAsync(ProviderSummary provider)
+    {
+        var parameters = new DialogParameters<RegisterProviderDialog> { { x => x.Existing, provider } };
+        var dialog = await Dialogs.ShowAsync<RegisterProviderDialog>($"Edit {provider.Name}", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            _results.Remove(provider.Id);
+            Snackbar.Add("Provider saved.", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(ProviderSummary provider)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            $"Delete {provider.Name}?",
+            "Its stored API key is deleted too. This cannot be undone.",
+            yesText: "Delete",
+            cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await UseCases.SendAsync<DeleteProvider, ProviderId>(new DeleteProvider(provider.Id));
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Provider deleted.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Error!.Message, Severity.Error);
+        }
+    }
 
     protected override Task OnInitializedAsync() => LoadAsync();
 

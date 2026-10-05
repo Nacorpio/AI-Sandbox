@@ -19,6 +19,9 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<ICommandHandler<RegisterProvider, ProviderId>, RegisterProviderHandler>();
+        services.AddScoped<ICommandHandler<UpdateProvider, ProviderId>, UpdateProviderHandler>();
+        services.AddScoped<ICommandHandler<DeleteProvider, ProviderId>, DeleteProviderHandler>();
+        services.AddScoped<ICommandHandler<TestProviderConnection, ConnectionTestResult>, TestProviderConnectionHandler>();
         services.AddScoped<IQueryHandler<ListProviders, IReadOnlyList<ProviderSummary>>, ListProvidersHandler>();
 
         services.AddScoped<IQueryHandler<ListTemplates, IReadOnlyList<TemplateSummary>>, ListTemplatesHandler>();

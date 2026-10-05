@@ -12,6 +12,8 @@ public interface IProviderRepository
 {
     void Add(Provider provider);
 
+    void Remove(Provider provider);
+
     Task<Provider?> GetAsync(ProviderId id, CancellationToken cancellationToken);
 }
 
@@ -38,6 +40,9 @@ public interface ISecretStore
     Task<string?> GetAsync(SecretReference reference, CancellationToken cancellationToken);
 
     Task<SecretStatus> DescribeAsync(SecretReference reference, CancellationToken cancellationToken);
+
+    /// <summary>Removes the stored value, if any. An environment override is not affected.</summary>
+    Task DeleteAsync(SecretReference reference, CancellationToken cancellationToken);
 }
 
 public interface IQuestionSetRepository
