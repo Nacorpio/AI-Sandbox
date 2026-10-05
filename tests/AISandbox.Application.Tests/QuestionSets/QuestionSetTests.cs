@@ -189,9 +189,9 @@ public sealed class QuestionSetTests : IDisposable
         var model = await CreateJevAsync(host);
         var id = (await CreateAsync(host, "Triage", Noul("is_urgent", "Original wording"))).Value;
 
-        var first = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, [], [model], id));
+        var first = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, [], [model], id));
         await host.SendAsync<UpdateQuestionSet, QuestionSetRef>(new UpdateQuestionSet(id, "Triage", [Noul("is_urgent", "New wording"), Noul("extra")]));
-        var second = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, [], [model], id));
+        var second = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, [], [model], id));
 
         var firstRun = (await host.QueryAsync<GetRun, RunView?>(new GetRun(first.Value)))!;
         var secondRun = (await host.QueryAsync<GetRun, RunView?>(new GetRun(second.Value)))!;
@@ -210,7 +210,7 @@ public sealed class QuestionSetTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, [Noul("a")], [model]));
+        var run = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, [Noul("a")], [model]));
 
         Assert.Null((await host.QueryAsync<GetRun, RunView?>(new GetRun(run.Value)))!.QuestionSet);
     }
@@ -221,7 +221,7 @@ public sealed class QuestionSetTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, [], [model]));
+        var run = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, [], [model]));
 
         Assert.Equal("validation.questions", run.Error!.Code);
     }
@@ -232,7 +232,7 @@ public sealed class QuestionSetTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, [Noul("a")], [model], QuestionSetId.New()));
+        var run = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, [Noul("a")], [model], QuestionSetId.New()));
 
         Assert.Equal("not_found", run.Error!.Code);
     }
@@ -242,7 +242,7 @@ public sealed class QuestionSetTests : IDisposable
     {
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, [Noul("a")], [model]));
+        var run = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, [Noul("a")], [model]));
         await using (var command = host.Database.CreateCommand())
         {
             command.CommandText = "UPDATE Runs SET Input = json_remove(Input, '$.questionSet')";

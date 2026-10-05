@@ -106,7 +106,23 @@ public sealed class Run : AggregateRoot<RunId>
         return run;
     }
 
-    public void MarkRunning(ExecutionId executionId, DateTimeOffset now) => Find(executionId).MarkRunning(now);
+    public void MarkRunning(ExecutionId executionId, DateTimeOffset now)
+    {
+        Find(executionId).MarkRunning(now);
+        Raise(new ExecutionStarted(Id, executionId, now));
+    }
+
+    /// <summary>
+    /// Stops the run: every execution that has not finished is recorded as failed with the
+    /// <c>cancelled</c> error. Finished executions keep their results.
+    /// </summary>
+    public void Cancel(DateTimeOffset now)
+    {
+        foreach (var execution in _executions.Where(e => !e.IsFinished).ToList())
+        {
+            RecordFailure(execution.Id, ExecutionError.Cancelled, null, null, null, now);
+        }
+    }
 
     public void RecordSuccess(ExecutionId executionId, InvocationSuccess success, DateTimeOffset now)
     {
@@ -230,10 +246,20 @@ public sealed class ModelExecution : Entity<ExecutionId>
     }
 }
 
-public sealed record RunStarted(RunId RunId, int ModelCount, DateTimeOffset OccurredAt) : IDomainEvent;
+/// <summary>
+/// An event that belongs to one run, so subscribers can follow a single run.
+/// </summary>
+public interface IRunEvent : IDomainEvent
+{
+    RunId RunId { get; }
+}
 
-public sealed record ExecutionCompleted(RunId RunId, ExecutionId ExecutionId, DateTimeOffset OccurredAt) : IDomainEvent;
+public sealed record RunStarted(RunId RunId, int ModelCount, DateTimeOffset OccurredAt) : IRunEvent;
 
-public sealed record ExecutionFailed(RunId RunId, ExecutionId ExecutionId, string ErrorCode, DateTimeOffset OccurredAt) : IDomainEvent;
+public sealed record ExecutionStarted(RunId RunId, ExecutionId ExecutionId, DateTimeOffset OccurredAt) : IRunEvent;
 
-public sealed record RunCompleted(RunId RunId, DateTimeOffset OccurredAt) : IDomainEvent;
+public sealed record ExecutionCompleted(RunId RunId, ExecutionId ExecutionId, DateTimeOffset OccurredAt) : IRunEvent;
+
+public sealed record ExecutionFailed(RunId RunId, ExecutionId ExecutionId, string ErrorCode, DateTimeOffset OccurredAt) : IRunEvent;
+
+public sealed record RunCompleted(RunId RunId, DateTimeOffset OccurredAt) : IRunEvent;

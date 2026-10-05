@@ -7,6 +7,7 @@ using AISandbox.Domain.Catalog.Models;
 using AISandbox.Infrastructure.Persistence;
 using AISandbox.Infrastructure.Protocols;
 using AISandbox.Infrastructure.Protocols.SystemOne;
+using AISandbox.Infrastructure.Runs;
 using AISandbox.Infrastructure.Secrets;
 using AISandbox.Infrastructure.Templates;
 using Microsoft.AspNetCore.DataProtection;
@@ -14,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace AISandbox.Infrastructure;
 
@@ -43,6 +45,16 @@ public static class DependencyInjection
         services.AddScoped<IQuestionSetQueries, QuestionSetQueries>();
         services.AddScoped<IRunRepository, RunRepository>();
         services.AddScoped<IRunQueries, RunQueries>();
+
+        services.AddOptions<ProviderLimitsOptions>()
+            .Bind(configuration.GetSection(ProviderLimitsOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<ProviderLimitsOptions>, ProviderLimitsOptionsValidator>();
+        services.AddSingleton<IProviderLimiter, ProviderLimiter>();
+        services.AddSingleton<IRunNotifier, RunNotifier>();
+        services.AddSingleton<RunScheduler>();
+        services.AddSingleton<IRunScheduler>(sp => sp.GetRequiredService<RunScheduler>());
+        services.AddHostedService<RunWorker>();
 
         services.AddHttpClient(ProviderHttp.ClientName, client => client.Timeout = ProviderTimeout);
         services.AddSingleton<ProviderHttp>();

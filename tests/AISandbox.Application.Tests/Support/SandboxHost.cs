@@ -1,11 +1,14 @@
 using AISandbox.Application;
 using AISandbox.Application.Abstractions;
+using AISandbox.Application.Features.Runs;
+using AISandbox.Domain.Experimentation;
 using AISandbox.Domain.Abstractions;
 using AISandbox.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace AISandbox.Application.Tests.Support;
 
@@ -18,10 +21,13 @@ public sealed class SandboxHost : IAsyncDisposable
     private readonly SqliteConnection _keepAlive;
     private readonly ServiceProvider _services;
 
-    private SandboxHost(SqliteConnection keepAlive, ServiceProvider services)
+    private readonly IReadOnlyList<IHostedService> _workers;
+
+    private SandboxHost(SqliteConnection keepAlive, ServiceProvider services, IReadOnlyList<IHostedService> workers)
     {
         _keepAlive = keepAlive;
         _services = services;
+        _workers = workers;
     }
 
     public SqliteConnection Database => _keepAlive;
@@ -48,7 +54,13 @@ public sealed class SandboxHost : IAsyncDisposable
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 
         await services.MigrateDatabaseAsync();
-        return new SandboxHost(keepAlive, services);
+        var workers = services.GetServices<IHostedService>().ToList();
+        foreach (var worker in workers)
+        {
+            await worker.StartAsync(CancellationToken.None);
+        }
+
+        return new SandboxHost(keepAlive, services, workers);
     }
 
     public async Task<Result<TResult>> SendAsync<TCommand, TResult>(TCommand command)
@@ -57,6 +69,26 @@ public sealed class SandboxHost : IAsyncDisposable
         var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<TCommand, TResult>>();
         return await handler.HandleAsync(command, CancellationToken.None);
     }
+
+    /// <summary>
+    /// Starts a run and waits until every execution has finished, the way a caller that does not
+    /// watch live progress would. Failed commands return straight away.
+    /// </summary>
+    public async Task<Result<RunId>> RunToCompletionAsync(StartRun command)
+    {
+        var result = await SendAsync<StartRun, RunId>(command);
+        if (result.IsSuccess)
+        {
+            await WaitForCompletionAsync(result.Value);
+        }
+
+        return result;
+    }
+
+    public Task WaitForCompletionAsync(RunId runId) =>
+        _services.GetRequiredService<IRunScheduler>().WaitForCompletionAsync(runId).WaitAsync(TimeSpan.FromSeconds(30));
+
+    public IRunNotifier Notifier => _services.GetRequiredService<IRunNotifier>();
 
     public async Task<TResult> QueryAsync<TQuery, TResult>(TQuery query)
     {
@@ -81,6 +113,11 @@ public sealed class SandboxHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        foreach (var worker in _workers)
+        {
+            await worker.StopAsync(CancellationToken.None);
+        }
+
         await _services.DisposeAsync();
         await _keepAlive.DisposeAsync();
     }
