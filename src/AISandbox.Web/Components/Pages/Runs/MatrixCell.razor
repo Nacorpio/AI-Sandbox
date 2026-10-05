@@ -1,0 +1,25 @@
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Experimentation
+
+@switch (Answer)
+{
+    case ChoiceAnswer choice:
+        <MatrixValue Text="@choice.Choice" Share="@choice.Probabilities.GetValueOrDefault(choice.Choice)" Confidence="choice.Confidence" />
+        break;
+    case ScoreAnswer score:
+        var level = AnswerMatrix.Level(score);
+        var label = score.Legend.GetValueOrDefault(level.ToString());
+        <MatrixValue Text="@($"{score.Score:0.##}{(label is null ? "" : " · " + label)}")"
+                     Share="@score.Probabilities.GetValueOrDefault(level.ToString())" Confidence="score.Confidence" />
+        break;
+    case NoulAnswer noul:
+        <MatrixValue Text="@(noul.Value >= 0.5 ? "True" : "False")" Share="noul.Value" Confidence="null" />
+        break;
+    default:
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">no answer</MudText>
+        break;
+}
+
+@code {
+    [Parameter] public Answer? Answer { get; set; }
+}

@@ -69,3 +69,47 @@ h1:focus {
     font-variant-numeric: tabular-nums;
 }
 .cursor-pointer { cursor: pointer; }
+
+.matrix-wrap {
+    overflow-x: auto;
+}
+
+.answer-matrix {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .answer-matrix th,
+    .answer-matrix td {
+        padding: 0.6rem 0.9rem;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .answer-matrix thead th {
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .answer-matrix tbody th {
+        min-width: 10rem;
+        max-width: 18rem;
+        font-weight: 400;
+    }
+
+    .answer-matrix td {
+        min-width: 11rem;
+    }
+
+    .answer-matrix tr:last-child > * {
+        border-bottom: none;
+    }
+
+    .answer-matrix tr.matrix-disagree > * {
+        background: color-mix(in srgb, var(--mud-palette-warning) 14%, transparent);
+    }
+
+    .answer-matrix tr.matrix-disagree > th:first-child {
+        box-shadow: inset 3px 0 0 var(--mud-palette-warning);
+    }

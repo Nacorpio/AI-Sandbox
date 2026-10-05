@@ -31,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetQuestionSet, QuestionSetView?>, GetQuestionSetHandler>();
 
         services.AddScoped<ICommandHandler<StartRun, RunId>, StartRunHandler>();
+        services.AddScoped<ICommandHandler<CancelRun, RunId>, CancelRunHandler>();
+        services.AddScoped<IRunExecutor, RunExecutor>();
         services.AddScoped<IQueryHandler<GetRun, RunView?>, GetRunHandler>();
         services.AddScoped<IQueryHandler<ListRuns, IReadOnlyList<RunSummary>>, ListRunsHandler>();
 

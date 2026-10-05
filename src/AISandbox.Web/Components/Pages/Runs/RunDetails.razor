@@ -1,8 +1,10 @@
 @page "/runs/{Id:guid}"
-@using System.Text.Json
 @using AISandbox.Application.Features.Runs
 @using AISandbox.Domain.Experimentation
+@implements IAsyncDisposable
+@using AISandbox.Application.Abstractions
 @inject UseCases UseCases
+@inject IRunNotifier Notifier
 
 <PageTitle>Run · AI Sandbox</PageTitle>
 
@@ -19,10 +21,21 @@ else
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
         <MudText Typo="Typo.h4">Run</MudText>
         <MudSpacer />
+        @if (_run.Status == RunStatus.Running)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Stop"
+                       Disabled="@_cancelling" OnClick="CancelAsync">@(_cancelling ? "Cancelling…" : "Cancel")</MudButton>
+        }
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PlayArrow" Href="runs/new">New run</MudButton>
     </MudStack>
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
         <MudText Typo="Typo.body2" Class="mud-text-secondary">@_run.CreatedAt.ToLocalTime().ToString("f")</MudText>
+        @if (_run.Status == RunStatus.Running)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Outlined.HourglassTop">
+                @(_run.Executions.Count(e => e.Status is ExecutionStatus.Succeeded or ExecutionStatus.Failed)) of @_run.Executions.Count answered
+            </MudChip>
+        }
         @if (_run.QuestionSet is { } set)
         {
             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Outlined.Quiz"
@@ -35,102 +48,122 @@ else
         <MudText Typo="Typo.body1" Style="white-space: pre-wrap">@_run.State</MudText>
     </MudPaper>
 
-    @foreach (var execution in _run.Executions)
+    @if (_matrix is { } matrix)
     {
-        <MudPaper Outlined="true" Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
-                <MudText Typo="Typo.h6">@execution.ModelName</MudText>
-                <StatusChip Status="execution.Status" />
-                <MudSpacer />
-                @if (execution.Latency is { } latency)
-                {
-                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Timer" Variant="Variant.Outlined">@Format.Duration(latency.Total)</MudChip>
-                }
-                @if (execution.Usage is { } usage)
-                {
-                    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.DataUsage" Variant="Variant.Outlined">@Format.Tokens(usage)</MudChip>
-                }
-                @if (execution.Cost is { } cost)
-                {
-                    <MudTooltip Text="@(execution.CostSource == CostSource.ProviderReported ? "Charged, as reported by the provider" : "Calculated from token usage and the model's price")">
-                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Payments" Variant="Variant.Outlined">@Format.Cost(cost)</MudChip>
-                    </MudTooltip>
-                }
-                @if (execution.ResolvedModel is { } resolved)
-                {
-                    <MudTooltip Text="Model version that answered">
-                        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Sell" Variant="Variant.Outlined">@resolved</MudChip>
-                    </MudTooltip>
-                }
-            </MudStack>
+        <MudStack Spacing="2" Class="mb-4">
+            @foreach (var execution in _run.Executions)
+            {
+                <MudPaper Outlined="true" Class="px-4 py-2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                        <MudText Typo="Typo.subtitle1">@execution.ModelName</MudText>
+                        <StatusChip Status="execution.Status" />
+                        @if (execution.Error is { } error)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary"><code>@error.Code</code></MudText>
+                        }
+                        <MudSpacer />
+                        <ExecutionMetrics Execution="execution" />
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
 
-            <MudTabs Elevation="0" Class="mt-2" TabPanelsClass="pt-4">
-                <MudTabPanel Text="Answers">
-                    @if (execution.Error is { } error)
-                    {
-                        <MudAlert Severity="Severity.Error" Dense="true">
-                            <strong>@error.Code</strong> · @error.Message
-                        </MudAlert>
-                    }
-                    else if (execution.Output is DecisionOutput decision)
-                    {
-                        <MudGrid Spacing="3">
-                            @foreach (var question in _run.Questions)
-                            {
-                                <MudItem xs="12" md="6">
-                                    <AnswerCard Question="question" Answer="@decision.Answers.GetValueOrDefault(question.Key)" />
-                                </MudItem>
-                            }
-                        </MudGrid>
-                    }
-                </MudTabPanel>
-                <MudTabPanel Text="Raw">
-                    <MudGrid Spacing="3">
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.overline">Request</MudText>
-                            <pre class="raw-json">@Pretty(execution.RawRequest)</pre>
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudText Typo="Typo.overline">Response</MudText>
-                            <pre class="raw-json">@Pretty(execution.RawResponse)</pre>
-                        </MudItem>
-                    </MudGrid>
-                </MudTabPanel>
-            </MudTabs>
-        </MudPaper>
+        <AnswerMatrixView Matrix="matrix" />
+
+        <MudExpansionPanels Class="mt-4" MultiExpansion="true">
+            @foreach (var execution in _run.Executions)
+            {
+                <MudExpansionPanel Text="@($"{execution.ModelName} · details")">
+                    <ExecutionCard Execution="execution" Questions="_run.Questions" />
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
+    else
+    {
+        <MudStack Spacing="4">
+            @foreach (var execution in _run.Executions)
+            {
+                <ExecutionCard Execution="execution" Questions="_run.Questions" />
+            }
+        </MudStack>
     }
 }
 
 @code {
-    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-
     [Parameter] public Guid Id { get; set; }
 
     private RunView? _run;
+    private AnswerMatrix? _matrix;
     private bool _loading = true;
+    private bool _cancelling;
+    private bool _disposed;
+    private bool _refreshing;
+    private bool _refreshAgain;
+    private IDisposable? _subscription;
 
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
-        _run = await UseCases.QueryAsync<GetRun, RunView?>(new GetRun(new RunId(Id)));
+        _subscription?.Dispose();
+        // Subscribe before loading so no event falls between the two.
+        _subscription = Notifier.Subscribe(new RunId(Id), runEvent => { _ = InvokeAsync(RefreshAsync); });
+        await LoadAsync();
         _loading = false;
     }
 
-    private static string Pretty(string? json)
+    private async Task LoadAsync()
     {
-        if (string.IsNullOrWhiteSpace(json))
+        _run = await UseCases.QueryAsync<GetRun, RunView?>(new GetRun(new RunId(Id)));
+        _matrix = _run is null ? null : AnswerMatrix.Of(_run);
+        if (_run?.Status == RunStatus.Completed)
         {
-            return "–";
+            _cancelling = false;
+        }
+    }
+
+    // Events can arrive in bursts; reload one at a time and once more if any came in meanwhile.
+    private async Task RefreshAsync()
+    {
+        if (_disposed)
+        {
+            return;
         }
 
+        if (_refreshing)
+        {
+            _refreshAgain = true;
+            return;
+        }
+
+        _refreshing = true;
         try
         {
-            using var document = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(document.RootElement, Indented);
+            do
+            {
+                _refreshAgain = false;
+                await LoadAsync();
+                StateHasChanged();
+            }
+            while (_refreshAgain && !_disposed);
         }
-        catch (JsonException)
+        finally
         {
-            return json;
+            _refreshing = false;
         }
+    }
+
+    private async Task CancelAsync()
+    {
+        _cancelling = true;
+        await UseCases.SendAsync<CancelRun, RunId>(new CancelRun(new RunId(Id)));
+        await RefreshAsync();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        _subscription?.Dispose();
+        return ValueTask.CompletedTask;
     }
 }

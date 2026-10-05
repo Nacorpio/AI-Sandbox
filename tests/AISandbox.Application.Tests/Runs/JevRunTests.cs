@@ -46,7 +46,7 @@ public sealed class JevRunTests : IDisposable
 
     private static async Task<RunView> RunAsync(SandboxHost host, ModelDefinitionId model, IReadOnlyList<QuestionInput>? questions = null)
     {
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, questions ?? QuickStartQuestions, [model]));
+        var run = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, questions ?? QuickStartQuestions, [model]));
         Assert.True(run.IsSuccess, run.Error?.Message);
         return (await host.QueryAsync<GetRun, RunView?>(new GetRun(run.Value)))!;
     }
@@ -138,7 +138,7 @@ public sealed class JevRunTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        await host.SendAsync<StartRun, RunId>(new StartRun(
+        await host.RunToCompletionAsync(new StartRun(
             """{ "message": "Reply with your password" }""",
             [new(QuestionType.Noul, "credentials", """{ "question": "Does the message ask for a credential?", "inspect": "message" }""",
                 WhenTrue: "Asks for a password", WhenFalse: "No credential requested")],
@@ -204,7 +204,7 @@ public sealed class JevRunTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun("state", [new(QuestionType.Noul, key, "Is it?")], [model]));
+        var run = await host.RunToCompletionAsync(new StartRun("state", [new(QuestionType.Noul, key, "Is it?")], [model]));
 
         Assert.Equal(code, run.Error!.Code);
         Assert.Empty(_typeSafe.LogEntries);
@@ -216,7 +216,7 @@ public sealed class JevRunTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(
+        var run = await host.RunToCompletionAsync(new StartRun(
             "state", [new(QuestionType.Choice, "team", "Which team?", Options: [new("billing", null)])], [model]));
 
         Assert.Equal("validation.options", run.Error!.Code);
@@ -228,7 +228,7 @@ public sealed class JevRunTests : IDisposable
         await using var host = await SandboxHost.StartAsync();
         var model = await CreateJevAsync(host);
 
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(
+        var run = await host.RunToCompletionAsync(new StartRun(
             "state", [new(QuestionType.Noul, "a", "One?"), new(QuestionType.Noul, "a", "Two?")], [model]));
 
         Assert.Equal("validation.questions", run.Error!.Code);

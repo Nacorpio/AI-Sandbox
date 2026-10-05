@@ -47,4 +47,9 @@ public enum CostSource
 
 /// <param name="Code">Stable identifier such as "http.401" or "timeout".</param>
 /// <param name="HttpStatus">Status code returned by the provider, when there was a response.</param>
-public sealed record ExecutionError(string Code, string Message, int? HttpStatus);
+public sealed record ExecutionError(string Code, string Message, int? HttpStatus)
+{
+    public const string CancelledCode = "cancelled";
+
+    public static ExecutionError Cancelled { get; } = new(CancelledCode, "The run was cancelled before this model answered.", null);
+}

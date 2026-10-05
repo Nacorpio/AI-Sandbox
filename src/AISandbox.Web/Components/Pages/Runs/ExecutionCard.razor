@@ -1,0 +1,79 @@
+@using System.Text.Json
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Experimentation
+
+<MudPaper Outlined="true" Class="pa-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+        <MudText Typo="Typo.h6">@Execution.ModelName</MudText>
+        <StatusChip Status="Execution.Status" />
+        <MudSpacer />
+        <ExecutionMetrics Execution="Execution" />
+    </MudStack>
+
+    @if (Execution.Status is ExecutionStatus.Pending or ExecutionStatus.Running)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Info" Class="mt-3" />
+    }
+    else
+    {
+        <MudTabs Elevation="0" Class="mt-2" TabPanelsClass="pt-4">
+            <MudTabPanel Text="Answers">
+                @if (Execution.Error is { } error)
+                {
+                    <MudAlert Severity="@(error.Code == ExecutionError.CancelledCode ? Severity.Normal : Severity.Error)" Dense="true">
+                        <strong>@error.Code</strong> · @error.Message
+                    </MudAlert>
+                }
+                else if (Execution.Output is DecisionOutput decision)
+                {
+                    <MudGrid Spacing="3">
+                        @foreach (var question in Questions)
+                        {
+                            <MudItem xs="12" md="6">
+                                <AnswerCard Question="question" Answer="@decision.Answers.GetValueOrDefault(question.Key)" />
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+            </MudTabPanel>
+            <MudTabPanel Text="Raw">
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.overline">Request</MudText>
+                        <pre class="raw-json">@Pretty(Execution.RawRequest)</pre>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.overline">Response</MudText>
+                        <pre class="raw-json">@Pretty(Execution.RawResponse)</pre>
+                    </MudItem>
+                </MudGrid>
+            </MudTabPanel>
+        </MudTabs>
+    }
+</MudPaper>
+
+@code {
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    [Parameter, EditorRequired] public ExecutionView Execution { get; set; } = default!;
+
+    [Parameter, EditorRequired] public IReadOnlyList<QuestionView> Questions { get; set; } = default!;
+
+    private static string Pretty(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return "–";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(document.RootElement, Indented);
+        }
+        catch (JsonException)
+        {
+            return json;
+        }
+    }
+}

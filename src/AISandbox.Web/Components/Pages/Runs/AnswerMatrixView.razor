@@ -1,0 +1,43 @@
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Experimentation
+
+<MudPaper Outlined="true" Class="matrix-wrap">
+    <table class="answer-matrix">
+        <thead>
+            <tr>
+                <th>Question</th>
+                @foreach (var column in Matrix.Columns)
+                {
+                    <th>@column.ModelName</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in Matrix.Rows)
+            {
+                <tr class="@(row.Disagree ? "matrix-disagree" : null)">
+                    <th scope="row">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <code>@row.Question.Key</code>
+                            @if (row.Disagree)
+                            {
+                                <MudTooltip Text="The models do not agree">
+                                    <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Size="Size.Small" Color="Color.Warning" />
+                                </MudTooltip>
+                            }
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@row.Question.Instructions</MudText>
+                    </th>
+                    @foreach (var answer in row.Answers)
+                    {
+                        <td><MatrixCell Answer="answer" /></td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public AnswerMatrix Matrix { get; set; } = default!;
+}

@@ -49,7 +49,7 @@ public sealed class OpenRouterDecisionsRunTests : IDisposable
 
     private static async Task<RunView> RunAsync(SandboxHost host, ModelDefinitionId model)
     {
-        var run = await host.SendAsync<StartRun, RunId>(new StartRun(SystemOnePayloads.State, Questions, [model]));
+        var run = await host.RunToCompletionAsync(new StartRun(SystemOnePayloads.State, Questions, [model]));
         Assert.True(run.IsSuccess, run.Error?.Message);
         return (await host.QueryAsync<GetRun, RunView?>(new GetRun(run.Value)))!;
     }

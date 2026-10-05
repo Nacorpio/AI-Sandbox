@@ -1,0 +1,27 @@
+@using AISandbox.Application.Features.Runs
+@using AISandbox.Domain.Experimentation
+
+@if (Execution.Latency is { } latency)
+{
+    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Timer" Variant="Variant.Outlined">@Format.Duration(latency.Total)</MudChip>
+}
+@if (Execution.Usage is { } usage)
+{
+    <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.DataUsage" Variant="Variant.Outlined">@Format.Tokens(usage)</MudChip>
+}
+@if (Execution.Cost is { } cost)
+{
+    <MudTooltip Text="@(Execution.CostSource == CostSource.ProviderReported ? "Charged, as reported by the provider" : "Calculated from token usage and the model's price")">
+        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Payments" Variant="Variant.Outlined">@Format.Cost(cost)</MudChip>
+    </MudTooltip>
+}
+@if (Execution.ResolvedModel is { } resolved)
+{
+    <MudTooltip Text="Model version that answered">
+        <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Outlined.Sell" Variant="Variant.Outlined">@resolved</MudChip>
+    </MudTooltip>
+}
+
+@code {
+    [Parameter, EditorRequired] public ExecutionView Execution { get; set; } = default!;
+}

@@ -72,19 +72,19 @@
         }
         else
         {
-            <MudSelect T="ModelDefinitionId?" @bind-Value="_modelId" Label="Model" Variant="Variant.Outlined">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">Pick one or more models. They answer in parallel and are compared side by side.</MudText>
+            <MudStack Spacing="0">
                 @foreach (var model in DecisionModels)
                 {
-                    <MudSelectItem T="ModelDefinitionId?" Value="model.Id">@model.DisplayName</MudSelectItem>
+                    var id = model.Id;
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudCheckBox T="bool" Value="@_selected.Contains(id)" ValueChanged="@(on => Toggle(id, on))" Label="@model.DisplayName" />
+                        <MudSpacer />
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><code>@model.RemoteId</code></MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><PriceLabel Pricing="model.Pricing" /></MudChip>
+                    </MudStack>
                 }
-            </MudSelect>
-            @if (DecisionModels.FirstOrDefault(m => m.Id == _modelId) is { } selected)
-            {
-                <MudStack Row="true" Spacing="2" Class="mt-2">
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><code>@selected.RemoteId</code></MudChip>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"><PriceLabel Pricing="selected.Pricing" /></MudChip>
-                </MudStack>
-            }
+            </MudStack>
         }
         break;
 }
@@ -104,8 +104,8 @@
     else
     {
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow"
-                   Disabled="@(_modelId is null || _running)" OnClick="RunAsync">
-            @(_running ? "Running…" : "Run")
+                   Disabled="@(_selected.Count == 0 || _running)" OnClick="RunAsync">
+            @(_running ? "Starting…" : _selected.Count > 1 ? $"Run {_selected.Count} models" : "Run")
         </MudButton>
     }
 </MudStack>
@@ -120,7 +120,7 @@
     private IReadOnlyList<QuestionSetSummary>? _sets;
     private bool _useSet;
     private QuestionSetId? _setId;
-    private ModelDefinitionId? _modelId;
+    private readonly HashSet<ModelDefinitionId> _selected = [];
     private string? _error;
     private bool _running;
 
@@ -129,12 +129,28 @@
     protected override async Task OnInitializedAsync()
     {
         _models = await UseCases.QueryAsync<ListModels, IReadOnlyList<ModelSummary>>(new ListModels());
-        _modelId = DecisionModels.FirstOrDefault()?.Id;
+        if (DecisionModels.FirstOrDefault() is { } first)
+        {
+            _selected.Add(first.Id);
+        }
+
         _sets = await UseCases.QueryAsync<ListQuestionSets, IReadOnlyList<QuestionSetSummary>>(new ListQuestionSets());
         if (_sets.Count > 0)
         {
             _useSet = true;
             _setId = _sets[0].Id;
+        }
+    }
+
+    private void Toggle(ModelDefinitionId id, bool selected)
+    {
+        if (selected)
+        {
+            _selected.Add(id);
+        }
+        else
+        {
+            _selected.Remove(id);
         }
     }
 
@@ -146,7 +162,7 @@
             new StartRun(
                 _state,
                 _useSet ? [] : _questions.Select(q => q.ToInput()).ToList(),
-                [_modelId!.Value],
+                DecisionModels.Where(m => _selected.Contains(m.Id)).Select(m => m.Id).ToList(),
                 _useSet ? _setId : null));
         _running = false;
 

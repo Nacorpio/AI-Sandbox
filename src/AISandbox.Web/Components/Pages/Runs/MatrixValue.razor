@@ -1,0 +1,26 @@
+@using AISandbox.Domain.Experimentation
+
+<MudStack Spacing="1">
+    <MudText Typo="Typo.subtitle2">@Text</MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+        <div class="flex-grow-1">
+            <MudProgressLinear Value="@(Share * 100)" Color="Color.Primary" Rounded="true" Size="Size.Small" />
+        </div>
+        <MudText Typo="Typo.caption">@Format.Percent(Share)</MudText>
+    </MudStack>
+    @if (Confidence is { } confidence)
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Format.Percent(confidence) sure</MudText>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+
+    /// <summary>
+    /// Probability of the answer shown, in [0, 1].
+    /// </summary>
+    [Parameter] public double Share { get; set; }
+
+    [Parameter] public double? Confidence { get; set; }
+}
