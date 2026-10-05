@@ -1,0 +1,19 @@
+{
+  "templateId": "perplexity.decider-v1-27b",
+  "version": 1,
+  "displayName": "Decider V1 27B",
+  "description": "Perplexity's 27B decision model served through OpenRouter. Calibrated choice, score and noul answers. Accepts images.",
+  "kind": "Decision",
+  "docsUrl": "https://openrouter.ai/perplexity/pplx-decider-v1-27b",
+  "inputSchema": "schemas/systemone.request.json",
+  "outputSchema": "schemas/systemone.response.json",
+  "routes": [
+    {
+      "providerKind": "OpenRouter",
+      "protocol": "openrouter-decisions",
+      "remoteId": "perplexity/pplx-decider-v1-27b",
+      "capabilities": { "acceptsImages": true, "maxQuestions": 64, "contextTokens": 262144, "questionTypes": [ "choice", "score", "noul" ] },
+      "pricing": { "currency": "USD", "inputPerMillion": 0.04, "outputPerMillion": 0 }
+    }
+  ]
+}

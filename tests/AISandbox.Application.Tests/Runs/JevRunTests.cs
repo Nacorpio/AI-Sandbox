@@ -64,7 +64,7 @@ public sealed class JevRunTests : IDisposable
         Assert.Equal("systemone", model.Protocol);
         Assert.Equal("jev-latest", model.RemoteId);
         Assert.Equal(0.042m, model.Pricing.InputPerMillion);
-        Assert.Equal(new TemplateOrigin("typesafe.jev", 1), model.Origin);
+        Assert.Equal(new TemplateOrigin("typesafe.jev", 2), model.Origin);
     }
 
     [Fact]
